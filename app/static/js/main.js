@@ -262,6 +262,7 @@
                                 onclick="revealFile('${file.file}')"></div>
 
                             <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                            <button class="prompt-button" title="View and edit prompt" onclick="openPromptModal('${shot.name}', '${type}', ${file.version})">P</button>
                         </div>
                     </div>
                 `;
@@ -297,6 +298,7 @@
                             <div class="file-preview lipsync-preview">
                                 <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
                                 <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                                <button class="prompt-button" title="View and edit prompt" onclick="openPromptModal('${shot.name}', '${part}', ${file.version})">P</button>
                             </div>
                         </div>`;
                 } else {
@@ -599,6 +601,62 @@ async function revealFile(relPath) {
                 console.error("Reveal failed:", e);
                 showNotification('Reveal failed', 'error');
     }
+}
+
+function openPromptModal(shotName, assetType, version) {
+    const shot = shots.find(s => s.name === shotName);
+    let prompt = '';
+    if (shot) {
+        if (assetType === 'image' || assetType === 'video') {
+            prompt = shot[assetType].prompt || '';
+        } else if (shot.lipsync && shot.lipsync[assetType]) {
+            prompt = shot.lipsync[assetType].prompt || '';
+        }
+    }
+    document.getElementById('prompt-modal-title').textContent = `${shotName} Prompt`;
+    document.getElementById('prompt-text').value = prompt;
+    const modal = document.getElementById('prompt-modal');
+    modal.dataset.shot = shotName;
+    modal.dataset.type = assetType;
+    modal.dataset.version = version;
+    modal.style.display = 'flex';
+    document.getElementById('prompt-text').focus();
+}
+
+function closePromptModal() {
+    document.getElementById('prompt-modal').style.display = 'none';
+}
+
+async function savePrompt() {
+    const modal = document.getElementById('prompt-modal');
+    const shotName = modal.dataset.shot;
+    const assetType = modal.dataset.type;
+    const version = modal.dataset.version;
+    const promptText = document.getElementById('prompt-text').value;
+    try {
+        const response = await fetch('/api/shots/prompt', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version: parseInt(version, 10), prompt: promptText })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            showNotification(result.error || 'Failed to save prompt', 'error');
+        } else {
+            const shot = shots.find(s => s.name === shotName);
+            if (shot) {
+                if (assetType === 'image' || assetType === 'video') {
+                    shot[assetType].prompt = promptText;
+                } else if (shot.lipsync && shot.lipsync[assetType]) {
+                    shot.lipsync[assetType].prompt = promptText;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error saving prompt:', e);
+        showNotification('Error saving prompt', 'error');
+    }
+    closePromptModal();
 }
 
 async function openShotsFolder() {

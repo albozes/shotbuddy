@@ -74,6 +74,18 @@
         </div>
     </div>
 
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="modal" data-shot="">
+        <div class="modal-content" style="position: relative;">
+            <button class="close-modal" onclick="closePromptModal()">&times;</button>
+            <h3 id="prompt-modal-title" style="margin-bottom: 10px;">Prompt</h3>
+            <textarea id="prompt-text" class="prompt-textarea"></textarea>
+            <div class="modal-buttons">
+                <button class="dark-button" onclick="savePrompt()">Save &amp; Close</button>
+            </div>
+        </div>
+    </div>
+
     <footer class='app-footer'>
         Created by <a href="https://albertbozesan.com/">Albert Bozesan</a> with ChatGPT Codex
     </footer>

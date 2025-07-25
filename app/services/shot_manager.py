@@ -241,12 +241,16 @@ class ShotManager:
             except Exception:
                 pass
 
+
         # Latest image
         latest_image, image_version = self._get_latest_asset(
             self.latest_images_dir, shot_dir / 'images',
             shot_name, ALLOWED_IMAGE_EXTENSIONS
         )
         latest_image = str(Path(latest_image).resolve()) if latest_image else None
+        image_prompt = ''
+        if image_version > 0:
+            image_prompt = self.load_prompt(shot_name, 'image', image_version)
 
         # Latest video
         latest_video, video_version = self._get_latest_asset(
@@ -254,6 +258,9 @@ class ShotManager:
             shot_name, ALLOWED_VIDEO_EXTENSIONS
         )
         latest_video = str(Path(latest_video).resolve()) if latest_video else None
+        video_prompt = ''
+        if video_version > 0:
+            video_prompt = self.load_prompt(shot_name, 'video', video_version)
 
         # Lipsync videos
         lipsync_dir = shot_dir / 'lipsync'
@@ -264,10 +271,14 @@ class ShotManager:
                 f'{shot_name}_{part}', ALLOWED_VIDEO_EXTENSIONS
             )
             file_path = str(Path(file_path).resolve()) if file_path else None
+            prompt_text = ''
+            if ver > 0:
+                prompt_text = self.load_prompt(shot_name, part, ver)
             lipsync[part] = {
                 'file': file_path,
                 'version': ver,
-                'thumbnail': None  # will be replaced with image thumb below
+                'thumbnail': None,  # will be replaced with image thumb below
+                'prompt': prompt_text,
             }
 
         # Thumbnails
@@ -288,12 +299,14 @@ class ShotManager:
             'image': {
                 'file': latest_image,
                 'version': image_version,
-                'thumbnail': image_thumb
+                'thumbnail': image_thumb,
+                'prompt': image_prompt,
             },
             'video': {
                 'file': latest_video,
                 'version': video_version,
-                'thumbnail': video_thumb
+                'thumbnail': video_thumb,
+                'prompt': video_prompt,
             },
             'lipsync': lipsync,
             'archived': False  # TODO: Implement archiving
@@ -342,6 +355,43 @@ class ShotManager:
                 f.write(notes)
         except Exception as e:
             raise ValueError(f"Failed to save notes: {str(e)}")
+
+    def _prompt_file_path(self, shot_name, asset_type, version):
+        """Return the path to the prompt file for a specific asset version."""
+        shot_dir = self.wip_dir / shot_name
+        if asset_type == 'image':
+            base_dir = shot_dir / 'images'
+            filename = f'{shot_name}_v{version:03d}_prompt.txt'
+        elif asset_type == 'video':
+            base_dir = shot_dir / 'videos'
+            filename = f'{shot_name}_v{version:03d}_prompt.txt'
+        elif asset_type in {'driver', 'target', 'result'}:
+            base_dir = shot_dir / 'lipsync'
+            filename = f'{shot_name}_{asset_type}_v{version:03d}_prompt.txt'
+        else:
+            raise ValueError('Invalid asset type')
+        return base_dir / filename
+
+    def load_prompt(self, shot_name, asset_type, version):
+        path = self._prompt_file_path(shot_name, asset_type, version)
+        if path.exists():
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
+            except Exception:
+                return ''
+        return ''
+
+    def save_prompt(self, shot_name, asset_type, version, prompt):
+        """Save prompt for a specific asset version."""
+        validate_shot_name(shot_name)
+        path = self._prompt_file_path(shot_name, asset_type, version)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(prompt)
+        except Exception as e:
+            raise ValueError(f"Failed to save prompt: {str(e)}")
 
     def get_thumbnail_path(self, image_path, shot_name):
         """Return (and create if necessary) the thumbnail for an image."""
