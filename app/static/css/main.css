@@ -514,6 +514,10 @@
             box-shadow: 0 2px 20px rgba(0,0,0,0.3);
         }
 
+        #prompt-modal .modal-content {
+            width: 800px;
+        }
+
         .modal-content input {
             width: 100%;
             padding: 10px;

@@ -613,7 +613,10 @@ function openPromptModal(shotName, assetType, version) {
             prompt = shot.lipsync[assetType].prompt || '';
         }
     }
-    document.getElementById('prompt-modal-title').textContent = `${shotName} Prompt`;
+    const typeLabel = assetType.charAt(0).toUpperCase() + assetType.slice(1);
+    const ver = version.toString().padStart(3, '0');
+    document.getElementById('prompt-modal-title').textContent =
+        `${shotName}_v${ver} ${typeLabel} Prompt`;
     document.getElementById('prompt-text').value = prompt;
     const modal = document.getElementById('prompt-modal');
     modal.dataset.shot = shotName;

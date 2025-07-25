@@ -361,10 +361,10 @@ class ShotManager:
         shot_dir = self.wip_dir / shot_name
         if asset_type == 'image':
             base_dir = shot_dir / 'images'
-            filename = f'{shot_name}_v{version:03d}_prompt.txt'
+            filename = f'{shot_name}_v{version:03d}_image_prompt.txt'
         elif asset_type == 'video':
             base_dir = shot_dir / 'videos'
-            filename = f'{shot_name}_v{version:03d}_prompt.txt'
+            filename = f'{shot_name}_v{version:03d}_video_prompt.txt'
         elif asset_type in {'driver', 'target', 'result'}:
             base_dir = shot_dir / 'lipsync'
             filename = f'{shot_name}_{asset_type}_v{version:03d}_prompt.txt'
