@@ -514,6 +514,101 @@
             box-shadow: 0 2px 20px rgba(0,0,0,0.3);
         }
 
+        #prompt-modal .modal-content {
+            width: 800px;
+        }
+
+        #prompt-modal-title {
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        .prompt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .version-select {
+            position: relative;
+        }
+
+        .pill-button {
+            padding: 5px 12px;
+            background: #3a3a3a;
+            color: #e5e5e5;
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 110%;
+            left: 0;
+            background: #252525;
+            border: 1px solid #444;
+            border-radius: 6px;
+            min-width: 80px;
+            z-index: 100;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: #3a3a3a;
+        }
+
+        .prompt-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .left-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .green-button {
+            padding: 10px 20px;
+            background: #00c851;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .green-button:hover {
+            background: #00a143;
+        }
+
+        .gray-button {
+            padding: 10px 20px;
+            background: #555;
+            color: #e5e5e5;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .gray-button:hover {
+            background: #6b6b6b;
+        }
+
         .modal-content input {
             width: 100%;
             padding: 10px;

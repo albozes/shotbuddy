@@ -114,6 +114,47 @@ def save_shot_prompt():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@shot_bp.route("/prompt", methods=["GET"])
+def get_shot_prompt():
+    try:
+        shot_name = request.args.get("shot_name")
+        asset_type = request.args.get("asset_type")
+        version = request.args.get("version", type=int)
+
+        if not shot_name or not asset_type or version is None:
+            return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+        project_manager = current_app.config['PROJECT_MANAGER']
+        project = project_manager.get_current_project()
+        if not project:
+            return jsonify({"success": False, "error": "No current project"}), 400
+
+        shot_manager = get_shot_manager(project["path"])
+        prompt = shot_manager.load_prompt(shot_name, asset_type, version)
+
+        return jsonify({"success": True, "data": prompt})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@shot_bp.route("/prompt_versions")
+def get_prompt_versions():
+    try:
+        shot_name = request.args.get("shot_name")
+        asset_type = request.args.get("asset_type")
+        if not shot_name or not asset_type:
+            return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+        project_manager = current_app.config['PROJECT_MANAGER']
+        project = project_manager.get_current_project()
+        if not project:
+            return jsonify({"success": False, "error": "No current project"}), 400
+
+        shot_manager = get_shot_manager(project["path"])
+        versions = shot_manager.get_prompt_versions(shot_name, asset_type)
+        return jsonify({"success": True, "data": versions})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @shot_bp.route("/rename", methods=["POST"])
 def rename_shot():
     try:

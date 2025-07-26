@@ -603,28 +603,155 @@ async function revealFile(relPath) {
     }
 }
 
-function openPromptModal(shotName, assetType, version) {
-    const shot = shots.find(s => s.name === shotName);
-    let prompt = '';
-    if (shot) {
-        if (assetType === 'image' || assetType === 'video') {
-            prompt = shot[assetType].prompt || '';
-        } else if (shot.lipsync && shot.lipsync[assetType]) {
-            prompt = shot.lipsync[assetType].prompt || '';
+async function fetchPrompt(shotName, assetType, version) {
+    try {
+        const resp = await fetch(`/api/shots/prompt?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}&version=${version}`);
+        const data = await resp.json();
+        if (data.success) {
+            return data.data || '';
         }
+    } catch (e) {
+        console.error('Failed to load prompt:', e);
     }
-    document.getElementById('prompt-modal-title').textContent = `${shotName} Prompt`;
+    return '';
+}
+
+async function fetchPromptVersions(shotName, assetType) {
+    try {
+        const resp = await fetch(`/api/shots/prompt_versions?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}`);
+        const data = await resp.json();
+        if (data.success) {
+            return data.data || [];
+        }
+    } catch (e) {
+        console.error('Failed to load prompt versions:', e);
+    }
+    return [];
+}
+
+function buildVersionDropdown(versions, currentVersion) {
+    const btn = document.getElementById('version-dropdown-btn');
+    const menu = document.getElementById('version-dropdown-menu');
+    menu.innerHTML = '';
+    versions.sort((a, b) => a - b);
+    versions.forEach(v => {
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        item.dataset.version = v;
+        item.textContent = `v${String(v).padStart(3, '0')}`;
+        item.onclick = () => selectPromptVersion(v);
+        menu.appendChild(item);
+    });
+    btn.textContent = `v${String(currentVersion).padStart(3, '0')} \u25BE`;
+}
+
+function toggleVersionDropdown() {
+    const menu = document.getElementById('version-dropdown-menu');
+    menu.classList.toggle('show');
+}
+
+async function selectPromptVersion(v) {
+    const modal = document.getElementById('prompt-modal');
+    const shotName = modal.dataset.shot;
+    const assetType = modal.dataset.type;
+    modal.dataset.version = v;
+    const versions = JSON.parse(modal.dataset.versions || '[]');
+    buildVersionDropdown(versions, v);
+    const prompt = await fetchPrompt(shotName, assetType, v);
     document.getElementById('prompt-text').value = prompt;
+    toggleVersionDropdown();
+}
+
+async function openPromptModal(shotName, assetType, version) {
     const modal = document.getElementById('prompt-modal');
     modal.dataset.shot = shotName;
     modal.dataset.type = assetType;
+
+    const typeLabel = assetType.charAt(0).toUpperCase() + assetType.slice(1);
+    document.getElementById('prompt-modal-title').textContent = `${shotName} ${typeLabel} Prompt`;
+
+    let versions = await fetchPromptVersions(shotName, assetType);
+    const isNew = !versions.includes(version);
+    if (isNew) {
+        versions.push(version);
+    }
+    modal.dataset.versions = JSON.stringify(versions);
+    buildVersionDropdown(versions, version);
+
+    let prompt = await fetchPrompt(shotName, assetType, version);
+    if (isNew && versions.length > 1) {
+        const sorted = [...versions].sort((a,b)=>a-b);
+        const idx = sorted.indexOf(version);
+        const prev = sorted[idx - 1];
+        if (prev !== undefined) {
+            prompt = await fetchPrompt(shotName, assetType, prev);
+        }
+    }
     modal.dataset.version = version;
+    document.getElementById('prompt-text').value = prompt;
+
     modal.style.display = 'flex';
     document.getElementById('prompt-text').focus();
 }
 
 function closePromptModal() {
     document.getElementById('prompt-modal').style.display = 'none';
+}
+
+async function copyToNewPromptVersion() {
+    const modal = document.getElementById('prompt-modal');
+    const shotName = modal.dataset.shot;
+    const assetType = modal.dataset.type;
+    let versions = JSON.parse(modal.dataset.versions || '[]');
+    const nextVersion = versions.length ? Math.max(...versions) + 1 : 1;
+    const currentPrompt = document.getElementById('prompt-text').value;
+    try {
+        const resp = await fetch('/api/shots/prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version: nextVersion, prompt: currentPrompt })
+        });
+        const result = await resp.json();
+        if (!result.success) {
+            showNotification(result.error || 'Failed to save prompt', 'error');
+            return;
+        }
+        versions.push(nextVersion);
+        modal.dataset.versions = JSON.stringify(versions);
+        modal.dataset.version = nextVersion;
+        buildVersionDropdown(versions, nextVersion);
+    } catch (e) {
+        console.error('Failed to copy prompt:', e);
+        showNotification('Failed to save prompt', 'error');
+    }
+}
+
+async function createEmptyPromptVersion() {
+    const modal = document.getElementById('prompt-modal');
+    const shotName = modal.dataset.shot;
+    const assetType = modal.dataset.type;
+    let versions = JSON.parse(modal.dataset.versions || '[]');
+    const nextVersion = versions.length ? Math.max(...versions) + 1 : 1;
+    try {
+        const resp = await fetch('/api/shots/prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version: nextVersion, prompt: '' })
+        });
+        const result = await resp.json();
+        if (!result.success) {
+            showNotification(result.error || 'Failed to save prompt', 'error');
+            return;
+        }
+        versions.push(nextVersion);
+        modal.dataset.versions = JSON.stringify(versions);
+        modal.dataset.version = nextVersion;
+        buildVersionDropdown(versions, nextVersion);
+        document.getElementById('prompt-text').value = '';
+    } catch (e) {
+        console.error('Failed to create prompt:', e);
+        showNotification('Failed to save prompt', 'error');
+    }
 }
 
 async function savePrompt() {

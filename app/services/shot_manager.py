@@ -361,10 +361,10 @@ class ShotManager:
         shot_dir = self.wip_dir / shot_name
         if asset_type == 'image':
             base_dir = shot_dir / 'images'
-            filename = f'{shot_name}_v{version:03d}_prompt.txt'
+            filename = f'{shot_name}_v{version:03d}_image_prompt.txt'
         elif asset_type == 'video':
             base_dir = shot_dir / 'videos'
-            filename = f'{shot_name}_v{version:03d}_prompt.txt'
+            filename = f'{shot_name}_v{version:03d}_video_prompt.txt'
         elif asset_type in {'driver', 'target', 'result'}:
             base_dir = shot_dir / 'lipsync'
             filename = f'{shot_name}_{asset_type}_v{version:03d}_prompt.txt'
@@ -392,6 +392,35 @@ class ShotManager:
                 f.write(prompt)
         except Exception as e:
             raise ValueError(f"Failed to save prompt: {str(e)}")
+
+    def get_prompt_versions(self, shot_name, asset_type):
+        """Return a sorted list of prompt versions for the given asset."""
+        shot_dir = self.wip_dir / shot_name
+        if asset_type == 'image':
+            base_dir = shot_dir / 'images'
+            pattern = f'{shot_name}_v*_image_prompt.txt'
+        elif asset_type == 'video':
+            base_dir = shot_dir / 'videos'
+            pattern = f'{shot_name}_v*_video_prompt.txt'
+        elif asset_type in {'driver', 'target', 'result'}:
+            base_dir = shot_dir / 'lipsync'
+            pattern = f'{shot_name}_{asset_type}_v*_prompt.txt'
+        else:
+            raise ValueError('Invalid asset type')
+
+        versions = []
+        if base_dir.exists():
+            for f in base_dir.glob(pattern):
+                stem = f.stem
+                if '_v' not in stem:
+                    continue
+                try:
+                    part = stem.split('_v')[1]
+                    ver_str = part.split('_')[0]
+                    versions.append(int(ver_str))
+                except (IndexError, ValueError):
+                    continue
+        return sorted(set(versions))
 
     def get_thumbnail_path(self, image_path, shot_name):
         """Return (and create if necessary) the thumbnail for an image."""
