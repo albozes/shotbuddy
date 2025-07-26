@@ -347,7 +347,8 @@
             padding: 12px 16px;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            transform: translateX(400px);
+            /* Move the notification completely off screen */
+            transform: translateX(calc(100% + 40px));
             transition: transform 0.3s ease;
             z-index: 1000;
             font-weight: 500;
