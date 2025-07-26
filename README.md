@@ -57,13 +57,17 @@ only prerequisite is that `git` is already installed on your machine.
    pip install -r requirements.txt
    ```
 5. **Run the development server**
-
+   Windows
    ```bash
    python run.py
    ```
-6. **Open your browser**
+   Linux/macOS
+   ```bash
+   python3 run.py
+   ```
+7. **Open your browser**
 
-   By default, Shotbuddy will be available at https://127.0.0.1:5001/
+   By default, Shotbuddy will be available at http://127.0.0.1:5001/
 
 ## Configuration
 
