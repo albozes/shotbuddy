@@ -93,8 +93,8 @@ class FileHandler:
             thumbnail_path = self.create_thumbnail(str(final_path), shot_name)
 
         return {
-            'wip_path': str(wip_path),
-            'final_path': str(final_path),
+            'wip_path': str(wip_path).replace('\\', '/'),
+            'final_path': str(final_path).replace('\\', '/'),
             'version': version,
             'thumbnail': f"static/thumbnails/{Path(thumbnail_path).name}" if thumbnail_path else None
         }
