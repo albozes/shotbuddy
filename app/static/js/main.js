@@ -641,7 +641,7 @@ function buildVersionDropdown(versions, currentVersion) {
     const btn = document.getElementById('version-dropdown-btn');
     const menu = document.getElementById('version-dropdown-menu');
     menu.innerHTML = '';
-    versions.sort((a, b) => a - b);
+    versions.sort((a, b) => b - a); // descending
     versions.forEach(v => {
         const item = document.createElement('div');
         item.className = 'dropdown-item';
