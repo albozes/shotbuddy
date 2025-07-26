@@ -662,6 +662,24 @@ async function selectPromptVersion(v) {
     const modal = document.getElementById('prompt-modal');
     const shotName = modal.dataset.shot;
     const assetType = modal.dataset.type;
+    const prevVersion = parseInt(modal.dataset.version, 10);
+    if (prevVersion && prevVersion !== v) {
+        const prevPromptText = document.getElementById('prompt-text').value;
+        try {
+            await fetch('/api/shots/prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shot_name: shotName,
+                    asset_type: assetType,
+                    version: prevVersion,
+                    prompt: prevPromptText
+                })
+            });
+        } catch (e) {
+            console.error('Auto-save failed:', e);
+        }
+    }
     modal.dataset.version = v;
     const versions = JSON.parse(modal.dataset.versions || '[]');
     buildVersionDropdown(versions, v);
@@ -677,8 +695,8 @@ async function selectPromptVersion(v) {
         if (prevPrompt) {
             prompt = prevPrompt;
             copyBtn.style.display = 'inline-block';
+            emptyBtn.style.display = 'inline-block';
         }
-        emptyBtn.style.display = 'inline-block';
     }
 
     document.getElementById('prompt-text').value = prompt;
@@ -709,8 +727,8 @@ async function openPromptModal(shotName, assetType, version) {
         if (prevPrompt) {
             prompt = prevPrompt;
             copyBtn.style.display = 'inline-block';
+            emptyBtn.style.display = 'inline-block';
         }
-        emptyBtn.style.display = 'inline-block';
     }
 
     modal.dataset.version = version;
