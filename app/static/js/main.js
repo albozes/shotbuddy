@@ -686,16 +686,14 @@ async function selectPromptVersion(v) {
     let prompt = await fetchPrompt(shotName, assetType, v);
 
     const copyBtn = document.getElementById('copy-prompt-btn');
-    const emptyBtn = document.getElementById('create-empty-btn');
     copyBtn.style.display = 'none';
-    emptyBtn.style.display = 'none';
+    modal.dataset.prevPrompt = '';
 
     if (!prompt && v === parseInt(modal.dataset.assetVersion, 10)) {
         const prevPrompt = await fetchPrompt(shotName, assetType, v - 1);
         if (prevPrompt) {
-            prompt = prevPrompt;
+            modal.dataset.prevPrompt = prevPrompt;
             copyBtn.style.display = 'inline-block';
-            emptyBtn.style.display = 'inline-block';
         }
     }
 
@@ -718,16 +716,14 @@ async function openPromptModal(shotName, assetType, version) {
 
     let prompt = await fetchPrompt(shotName, assetType, version);
     const copyBtn = document.getElementById('copy-prompt-btn');
-    const emptyBtn = document.getElementById('create-empty-btn');
     copyBtn.style.display = 'none';
-    emptyBtn.style.display = 'none';
+    modal.dataset.prevPrompt = '';
 
-    if (!prompt) {
+    if (!prompt && version > 1) {
         const prevPrompt = await fetchPrompt(shotName, assetType, version - 1);
         if (prevPrompt) {
-            prompt = prevPrompt;
+            modal.dataset.prevPrompt = prevPrompt;
             copyBtn.style.display = 'inline-block';
-            emptyBtn.style.display = 'inline-block';
         }
     }
 
@@ -742,68 +738,13 @@ function closePromptModal() {
     document.getElementById('prompt-modal').style.display = 'none';
 }
 
-async function copyToNewPromptVersion() {
+function copyToNewPromptVersion() {
     const modal = document.getElementById('prompt-modal');
-    const shotName = modal.dataset.shot;
-    const assetType = modal.dataset.type;
-    const version = parseInt(modal.dataset.assetVersion, 10);
-    let versions = JSON.parse(modal.dataset.versions || '[]');
-    if (!versions.includes(version)) {
-        versions.push(version);
+    const prevPrompt = modal.dataset.prevPrompt || '';
+    if (prevPrompt) {
+        document.getElementById('prompt-text').value = prevPrompt;
     }
-    const currentPrompt = document.getElementById('prompt-text').value;
-    try {
-        const resp = await fetch('/api/shots/prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version, prompt: currentPrompt })
-        });
-        const result = await resp.json();
-        if (!result.success) {
-            showNotification(result.error || 'Failed to save prompt', 'error');
-            return;
-        }
-        modal.dataset.versions = JSON.stringify(versions);
-        modal.dataset.version = version;
-        buildVersionDropdown(versions, version);
-        document.getElementById('copy-prompt-btn').style.display = 'none';
-        document.getElementById('create-empty-btn').style.display = 'none';
-    } catch (e) {
-        console.error('Failed to copy prompt:', e);
-        showNotification('Failed to save prompt', 'error');
-    }
-}
-
-async function createEmptyPromptVersion() {
-    const modal = document.getElementById('prompt-modal');
-    const shotName = modal.dataset.shot;
-    const assetType = modal.dataset.type;
-    const version = parseInt(modal.dataset.assetVersion, 10);
-    let versions = JSON.parse(modal.dataset.versions || '[]');
-    if (!versions.includes(version)) {
-        versions.push(version);
-    }
-    try {
-        const resp = await fetch('/api/shots/prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version, prompt: '' })
-        });
-        const result = await resp.json();
-        if (!result.success) {
-            showNotification(result.error || 'Failed to save prompt', 'error');
-            return;
-        }
-        modal.dataset.versions = JSON.stringify(versions);
-        modal.dataset.version = version;
-        buildVersionDropdown(versions, version);
-        document.getElementById('prompt-text').value = '';
-        document.getElementById('copy-prompt-btn').style.display = 'none';
-        document.getElementById('create-empty-btn').style.display = 'none';
-    } catch (e) {
-        console.error('Failed to create prompt:', e);
-        showNotification('Failed to save prompt', 'error');
-    }
+    document.getElementById('copy-prompt-btn').style.display = 'none';
 }
 
 async function savePrompt() {
