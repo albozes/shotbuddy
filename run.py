@@ -1,6 +1,8 @@
 import os
+import socket
+import threading
+import time
 import webbrowser
-from threading import Timer
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -29,8 +31,19 @@ if __name__ == "__main__":
     port = int(os.environ.get("SHOTBUDDY_PORT", cfg_port or 5001))
     debug = os.environ.get("SHOTBUDDY_DEBUG", "0").lower() in {"1", "true", "yes"}
 
-    def _open_browser():
-        webbrowser.open_new(f"http://{host}:{port}/")
+    def _open_browser_when_ready(url):
+        while True:
+            try:
+                with socket.create_connection((host, port), timeout=1):
+                    break
+            except OSError:
+                time.sleep(0.1)
+        webbrowser.open_new(url)
 
-    Timer(1.0, _open_browser).start()
+    threading.Thread(
+        target=_open_browser_when_ready,
+        args=(f"http://{host}:{port}/",),
+        daemon=True,
+    ).start()
+
     app.run(debug=debug, host=host, port=port)
