@@ -41,7 +41,7 @@
     <div id="main-interface" style="display: none;">
         <div class="header">
             <h1 class="project-title" id="project-title">Loading...</h1>
-            <button class="new-shot-btn" onclick="addNewShot()">New Shot +</button>
+            <button class="green-button new-shot-btn" onclick="addNewShot()">New Shot +</button>
         </div>
 
         <div class="container">
@@ -88,8 +88,8 @@
             <textarea id="prompt-text" class="prompt-textarea"></textarea>
             <div class="prompt-footer">
                 <div class="left-buttons">
-                    <button class="green-button" onclick="copyToNewPromptVersion()">Copy to new version</button>
-                    <button class="gray-button" onclick="createEmptyPromptVersion()">Create new empty prompt</button>
+                    <button id="copy-prompt-btn" class="green-button" onclick="copyToNewPromptVersion()">Copy to new version</button>
+                    <button id="create-empty-btn" class="dark-button" onclick="createEmptyPromptVersion()">Create new empty prompt</button>
                 </div>
                 <div class="modal-buttons">
                     <button class="dark-button" onclick="savePrompt()">Save &amp; Close</button>

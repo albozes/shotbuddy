@@ -174,7 +174,7 @@
             finalDropZone.addEventListener("drop", handleRowDrop);
             finalDropZone.addEventListener("dragleave", handleRowDragLeave);
             const finalBtn = document.createElement("button");
-            finalBtn.className = "new-shot-btn inline-new-shot-btn";
+            finalBtn.className = "green-button new-shot-btn inline-new-shot-btn";
             finalBtn.textContent = "New Shot +";
             finalBtn.addEventListener("click", () => {
                 addNewShotAfter(finalDropZone.getAttribute("data-after-shot"));
@@ -188,7 +188,7 @@
             firstDropZone.addEventListener("drop", handleRowDrop);
             firstDropZone.addEventListener("dragleave", handleRowDragLeave);
             const firstBtn = document.createElement("button");
-            firstBtn.className = "new-shot-btn inline-new-shot-btn";
+            firstBtn.className = "green-button new-shot-btn inline-new-shot-btn";
             firstBtn.textContent = "New Shot +";
             firstBtn.addEventListener("click", () => {
                 addNewShotAfter(firstDropZone.getAttribute("data-after-shot"));
@@ -216,7 +216,7 @@
                     dropBetween.addEventListener("drop", handleRowDrop);
                     dropBetween.addEventListener("dragleave", handleRowDragLeave);
                     const btn = document.createElement("button");
-                    btn.className = "new-shot-btn inline-new-shot-btn";
+                    btn.className = "green-button new-shot-btn inline-new-shot-btn";
                     btn.textContent = "New Shot +";
                     btn.addEventListener("click", () => {
                         addNewShotAfter(dropBetween.getAttribute("data-after-shot"));
@@ -636,18 +636,6 @@ async function fetchPrompt(shotName, assetType, version) {
     return '';
 }
 
-async function fetchPromptVersions(shotName, assetType) {
-    try {
-        const resp = await fetch(`/api/shots/prompt_versions?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}`);
-        const data = await resp.json();
-        if (data.success) {
-            return data.data || [];
-        }
-    } catch (e) {
-        console.error('Failed to load prompt versions:', e);
-    }
-    return [];
-}
 
 function buildVersionDropdown(versions, currentVersion) {
     const btn = document.getElementById('version-dropdown-btn');
@@ -677,7 +665,22 @@ async function selectPromptVersion(v) {
     modal.dataset.version = v;
     const versions = JSON.parse(modal.dataset.versions || '[]');
     buildVersionDropdown(versions, v);
-    const prompt = await fetchPrompt(shotName, assetType, v);
+    let prompt = await fetchPrompt(shotName, assetType, v);
+
+    const copyBtn = document.getElementById('copy-prompt-btn');
+    const emptyBtn = document.getElementById('create-empty-btn');
+    copyBtn.style.display = 'none';
+    emptyBtn.style.display = 'none';
+
+    if (!prompt && v === parseInt(modal.dataset.assetVersion, 10)) {
+        const prevPrompt = await fetchPrompt(shotName, assetType, v - 1);
+        if (prevPrompt) {
+            prompt = prevPrompt;
+            copyBtn.style.display = 'inline-block';
+        }
+        emptyBtn.style.display = 'inline-block';
+    }
+
     document.getElementById('prompt-text').value = prompt;
     toggleVersionDropdown();
 }
@@ -690,23 +693,26 @@ async function openPromptModal(shotName, assetType, version) {
     const typeLabel = assetType.charAt(0).toUpperCase() + assetType.slice(1);
     document.getElementById('prompt-modal-title').textContent = `${shotName} ${typeLabel} Prompt`;
 
-    let versions = await fetchPromptVersions(shotName, assetType);
-    const isNew = !versions.includes(version);
-    if (isNew) {
-        versions.push(version);
-    }
+    const versions = Array.from({ length: version }, (_, i) => i + 1);
     modal.dataset.versions = JSON.stringify(versions);
+    modal.dataset.assetVersion = version;
     buildVersionDropdown(versions, version);
 
     let prompt = await fetchPrompt(shotName, assetType, version);
-    if (isNew && versions.length > 1) {
-        const sorted = [...versions].sort((a,b)=>a-b);
-        const idx = sorted.indexOf(version);
-        const prev = sorted[idx - 1];
-        if (prev !== undefined) {
-            prompt = await fetchPrompt(shotName, assetType, prev);
+    const copyBtn = document.getElementById('copy-prompt-btn');
+    const emptyBtn = document.getElementById('create-empty-btn');
+    copyBtn.style.display = 'none';
+    emptyBtn.style.display = 'none';
+
+    if (!prompt) {
+        const prevPrompt = await fetchPrompt(shotName, assetType, version - 1);
+        if (prevPrompt) {
+            prompt = prevPrompt;
+            copyBtn.style.display = 'inline-block';
         }
+        emptyBtn.style.display = 'inline-block';
     }
+
     modal.dataset.version = version;
     document.getElementById('prompt-text').value = prompt;
 
@@ -722,24 +728,28 @@ async function copyToNewPromptVersion() {
     const modal = document.getElementById('prompt-modal');
     const shotName = modal.dataset.shot;
     const assetType = modal.dataset.type;
+    const version = parseInt(modal.dataset.assetVersion, 10);
     let versions = JSON.parse(modal.dataset.versions || '[]');
-    const nextVersion = versions.length ? Math.max(...versions) + 1 : 1;
+    if (!versions.includes(version)) {
+        versions.push(version);
+    }
     const currentPrompt = document.getElementById('prompt-text').value;
     try {
         const resp = await fetch('/api/shots/prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version: nextVersion, prompt: currentPrompt })
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version, prompt: currentPrompt })
         });
         const result = await resp.json();
         if (!result.success) {
             showNotification(result.error || 'Failed to save prompt', 'error');
             return;
         }
-        versions.push(nextVersion);
         modal.dataset.versions = JSON.stringify(versions);
-        modal.dataset.version = nextVersion;
-        buildVersionDropdown(versions, nextVersion);
+        modal.dataset.version = version;
+        buildVersionDropdown(versions, version);
+        document.getElementById('copy-prompt-btn').style.display = 'none';
+        document.getElementById('create-empty-btn').style.display = 'none';
     } catch (e) {
         console.error('Failed to copy prompt:', e);
         showNotification('Failed to save prompt', 'error');
@@ -750,24 +760,28 @@ async function createEmptyPromptVersion() {
     const modal = document.getElementById('prompt-modal');
     const shotName = modal.dataset.shot;
     const assetType = modal.dataset.type;
+    const version = parseInt(modal.dataset.assetVersion, 10);
     let versions = JSON.parse(modal.dataset.versions || '[]');
-    const nextVersion = versions.length ? Math.max(...versions) + 1 : 1;
+    if (!versions.includes(version)) {
+        versions.push(version);
+    }
     try {
         const resp = await fetch('/api/shots/prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version: nextVersion, prompt: '' })
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version, prompt: '' })
         });
         const result = await resp.json();
         if (!result.success) {
             showNotification(result.error || 'Failed to save prompt', 'error');
             return;
         }
-        versions.push(nextVersion);
         modal.dataset.versions = JSON.stringify(versions);
-        modal.dataset.version = nextVersion;
-        buildVersionDropdown(versions, nextVersion);
+        modal.dataset.version = version;
+        buildVersionDropdown(versions, version);
         document.getElementById('prompt-text').value = '';
+        document.getElementById('copy-prompt-btn').style.display = 'none';
+        document.getElementById('create-empty-btn').style.display = 'none';
     } catch (e) {
         console.error('Failed to create prompt:', e);
         showNotification('Failed to save prompt', 'error');
