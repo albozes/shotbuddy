@@ -50,6 +50,13 @@ class ShotManager:
         self.latest_images_dir.mkdir(parents=True, exist_ok=True)
         self.latest_videos_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _normalize_path(path):
+        """Return a POSIX-style absolute path string or ``None``."""
+        if not path:
+            return None
+        return str(Path(path).resolve()).replace("\\", "/")
+
     def rename_shot(self, old_name, new_name):
         """Rename a shot and all associated files."""
         validate_shot_name(old_name)
@@ -247,7 +254,7 @@ class ShotManager:
             self.latest_images_dir, shot_dir / 'images',
             shot_name, ALLOWED_IMAGE_EXTENSIONS
         )
-        latest_image = str(Path(latest_image).resolve()) if latest_image else None
+        latest_image = self._normalize_path(latest_image)
         image_prompt = ''
         if image_version > 0:
             image_prompt = self.load_prompt(shot_name, 'image', image_version)
@@ -257,7 +264,7 @@ class ShotManager:
             self.latest_videos_dir, shot_dir / 'videos',
             shot_name, ALLOWED_VIDEO_EXTENSIONS
         )
-        latest_video = str(Path(latest_video).resolve()) if latest_video else None
+        latest_video = self._normalize_path(latest_video)
         video_prompt = ''
         if video_version > 0:
             video_prompt = self.load_prompt(shot_name, 'video', video_version)
@@ -270,7 +277,7 @@ class ShotManager:
                 lipsync_dir, lipsync_dir,
                 f'{shot_name}_{part}', ALLOWED_VIDEO_EXTENSIONS
             )
-            file_path = str(Path(file_path).resolve()) if file_path else None
+            file_path = self._normalize_path(file_path)
             prompt_text = ''
             if ver > 0:
                 prompt_text = self.load_prompt(shot_name, part, ver)
