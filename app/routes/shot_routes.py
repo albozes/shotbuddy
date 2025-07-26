@@ -137,6 +137,7 @@ def get_shot_prompt():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @shot_bp.route("/prompt_versions")
+@shot_bp.route("/prompt-versions")
 def get_prompt_versions():
     try:
         shot_name = request.args.get("shot_name")
