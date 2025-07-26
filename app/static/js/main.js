@@ -94,8 +94,21 @@
     
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', handlePromptButtonClick);
             checkForProject();
         });
+
+        function handlePromptButtonClick(event) {
+            const btn = event.target.closest('.prompt-button');
+            if (!btn) {
+                return;
+            }
+            event.stopPropagation();
+            const shot = btn.dataset.shot;
+            const type = btn.dataset.type;
+            const version = parseInt(btn.dataset.version, 10);
+            openPromptModal(shot, type, version);
+        }
 
         async function checkForProject() {
             try {
@@ -262,7 +275,11 @@
                                 onclick="revealFile('${file.file}')"></div>
 
                             <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
-                            <button class="prompt-button" title="View and edit prompt" onclick="openPromptModal('${shot.name}', '${type}', ${file.version})">P</button>
+                            <button class="prompt-button"
+                                    title="View and edit prompt"
+                                    data-shot="${shot.name}"
+                                    data-type="${type}"
+                                    data-version="${file.version}">P</button>
                         </div>
                     </div>
                 `;
@@ -298,7 +315,10 @@
                             <div class="file-preview lipsync-preview">
                                 <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
                                 <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
-                                <button class="prompt-button" title="View and edit prompt" onclick="openPromptModal('${shot.name}', '${part}', ${file.version})">P</button>
+                                <button class="prompt-button" title="View and edit prompt"
+                                        data-shot="${shot.name}"
+                                        data-type="${part}"
+                                        data-version="${file.version}">P</button>
                             </div>
                         </div>`;
                 } else {
