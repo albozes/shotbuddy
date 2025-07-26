@@ -582,7 +582,8 @@
         .green-button {
             padding: 10px 20px;
             background: #00c851;
-            color: #fff;
+            color: #1a1a1a;
+
             border: none;
             border-radius: 6px;
             font-weight: 600;
