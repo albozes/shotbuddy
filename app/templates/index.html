@@ -75,13 +75,25 @@
     </div>
 
     <!-- Prompt Modal -->
-    <div id="prompt-modal" class="modal" data-shot="">
-        <div class="modal-content" style="position: relative;">
+        <div id="prompt-modal" class="modal" data-shot="">
+        <div class="modal-content prompt-modal-content" style="position: relative;">
             <button class="close-modal" onclick="closePromptModal()">&times;</button>
-            <h3 id="prompt-modal-title" style="margin-bottom: 10px;">Prompt</h3>
+            <div class="prompt-header">
+                <h3 id="prompt-modal-title">Prompt</h3>
+                <div class="version-select">
+                    <button id="version-dropdown-btn" class="pill-button" onclick="toggleVersionDropdown()">v001 &#9662;</button>
+                    <div id="version-dropdown-menu" class="dropdown-menu"></div>
+                </div>
+            </div>
             <textarea id="prompt-text" class="prompt-textarea"></textarea>
-            <div class="modal-buttons">
-                <button class="dark-button" onclick="savePrompt()">Save &amp; Close</button>
+            <div class="prompt-footer">
+                <div class="left-buttons">
+                    <button class="green-button" onclick="copyToNewPromptVersion()">Copy to new version</button>
+                    <button class="gray-button" onclick="createEmptyPromptVersion()">Create new empty prompt</button>
+                </div>
+                <div class="modal-buttons">
+                    <button class="dark-button" onclick="savePrompt()">Save &amp; Close</button>
+                </div>
             </div>
         </div>
     </div>
