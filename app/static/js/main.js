@@ -636,7 +636,6 @@ async function fetchPrompt(shotName, assetType, version) {
     return '';
 }
 
-
 function buildVersionDropdown(versions, currentVersion) {
     const btn = document.getElementById('version-dropdown-btn');
     const menu = document.getElementById('version-dropdown-menu');
@@ -696,7 +695,6 @@ async function selectPromptVersion(v) {
             copyBtn.style.display = 'inline-block';
         }
     }
-
     document.getElementById('prompt-text').value = prompt;
     toggleVersionDropdown();
 }
@@ -708,7 +706,6 @@ async function openPromptModal(shotName, assetType, version) {
 
     const typeLabel = assetType.charAt(0).toUpperCase() + assetType.slice(1);
     document.getElementById('prompt-modal-title').textContent = `${shotName} ${typeLabel} Prompt`;
-
     const versions = Array.from({ length: version }, (_, i) => i + 1);
     modal.dataset.versions = JSON.stringify(versions);
     modal.dataset.assetVersion = version;
@@ -726,7 +723,6 @@ async function openPromptModal(shotName, assetType, version) {
             copyBtn.style.display = 'inline-block';
         }
     }
-
     modal.dataset.version = version;
     document.getElementById('prompt-text').value = prompt;
 
@@ -737,7 +733,6 @@ async function openPromptModal(shotName, assetType, version) {
 function closePromptModal() {
     document.getElementById('prompt-modal').style.display = 'none';
 }
-
 function copyToNewPromptVersion() {
     const modal = document.getElementById('prompt-modal');
     const prevPrompt = modal.dataset.prevPrompt || '';
