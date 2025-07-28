@@ -10,25 +10,38 @@ def extract_prompt_from_png(path):
     try:
         with Image.open(path) as img:
             if img.format != "PNG":
+                logger.info("%s is not a PNG file", path)
                 return None
             metadata = {}
             metadata.update(getattr(img, "text", {}) or {})
             metadata.update(img.info or {})
     except Exception as e:
-        logger.warning("Failed to read image metadata: %s", e)
+        logger.warning("Failed to read image metadata for %s: %s", path, e)
         return None
 
     if not metadata:
+        logger.info("No PNG metadata found in %s", path)
         return None
 
     key = _find_key(metadata, ["parameters"])
     if key:
-        return _parse_a1111(metadata[key])
+        result = _parse_a1111(metadata[key])
+        if result:
+            logger.info("Extracted AUTOMATIC1111 prompt from %s", path)
+        else:
+            logger.warning("Failed to parse AUTOMATIC1111 prompt in %s", path)
+        return result
 
     key = _find_key(metadata, ["prompt", "workflow"])
     if key:
-        return _parse_comfyui(metadata[key])
+        result = _parse_comfyui(metadata[key])
+        if result:
+            logger.info("Extracted ComfyUI prompt from %s", path)
+        else:
+            logger.warning("Failed to parse ComfyUI prompt in %s", path)
+        return result
 
+    logger.info("No recognizable prompt metadata in %s", path)
     return None
 
 

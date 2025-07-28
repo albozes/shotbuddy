@@ -85,8 +85,11 @@ class FileHandler:
                     try:
                         manager = get_shot_manager(self.project_path)
                         manager.save_prompt(shot_name, 'image', version, prompt_text)
+                        logger.info("Imported prompt from metadata for %s", final_path)
                     except Exception as e:
                         logger.warning('Failed to save imported prompt: %s', e)
+                else:
+                    logger.info("No embedded prompt found in %s", final_path)
         else:
             # lipsync driver/target/result
             dest_dir = shot_dir / 'lipsync'
