@@ -1,6 +1,8 @@
 from pathlib import Path
 import shutil
 from PIL import Image
+
+from app.services.prompt_importer import extract_prompt_from_png
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,23 @@ class FileHandler:
                 existing_file.unlink()
 
             shutil.copy2(str(wip_path), str(final_path))
+
+            # Attempt to extract embedded prompt metadata from PNG files
+            if file_ext == '.png':
+                prompt_data = extract_prompt_from_png(final_path)
+                if prompt_data and prompt_data.get('prompt'):
+                    prompt_text = prompt_data['prompt'].strip()
+                    neg = prompt_data.get('negative_prompt', '').strip()
+                    if neg:
+                        prompt_text += f"\n\nNegative: {neg}"
+                    try:
+                        manager = get_shot_manager(self.project_path)
+                        manager.save_prompt(shot_name, 'image', version, prompt_text)
+                        logger.info("Imported prompt from metadata for %s", final_path)
+                    except Exception as e:
+                        logger.warning('Failed to save imported prompt: %s', e)
+                else:
+                    logger.info("No embedded prompt found in %s", final_path)
         else:
             # lipsync driver/target/result
             dest_dir = shot_dir / 'lipsync'
