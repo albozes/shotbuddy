@@ -11,7 +11,9 @@ def extract_prompt_from_png(path):
         with Image.open(path) as img:
             if img.format != "PNG":
                 return None
-            metadata = getattr(img, "text", {}) or {}
+            metadata = {}
+            metadata.update(getattr(img, "text", {}) or {})
+            metadata.update(img.info or {})
     except Exception as e:
         logger.warning("Failed to read image metadata: %s", e)
         return None
@@ -19,14 +21,31 @@ def extract_prompt_from_png(path):
     if not metadata:
         return None
 
-    if "parameters" in metadata:
-        return _parse_a1111(metadata["parameters"])
-    if "workflow" in metadata or "prompt" in metadata:
-        return _parse_comfyui(metadata)
+    key = _find_key(metadata, ["parameters"])
+    if key:
+        return _parse_a1111(metadata[key])
+
+    key = _find_key(metadata, ["prompt", "workflow"])
+    if key:
+        return _parse_comfyui(metadata[key])
+
     return None
 
 
-def _parse_a1111(text):
+def _find_key(metadata, names):
+    """Return the key from metadata matching one of the names."""
+    lower = {k.lower(): k for k in metadata.keys()}
+    for name in names:
+        for k in metadata.keys():
+            if k.lower().startswith(name.lower()):
+                return k
+        if name.lower() in lower:
+            return lower[name.lower()]
+    return None
+
+
+def _parse_a1111(text: str):
+    """Parse AUTOMATIC1111/Forge style metadata."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines:
         return None
@@ -39,16 +58,14 @@ def _parse_a1111(text):
     return {"prompt": positive, "negative_prompt": negative}
 
 
-def _parse_comfyui(metadata):
-    data = None
-    for key in ("prompt", "workflow"):
-        if key in metadata:
-            try:
-                data = json.loads(metadata[key])
-                if isinstance(data, dict):
-                    break
-            except Exception as e:
-                logger.warning("Failed to parse %s chunk: %s", key, e)
+def _parse_comfyui(json_text: str):
+    """Parse ComfyUI prompt or workflow JSON string."""
+    try:
+        data = json.loads(json_text)
+    except Exception as e:
+        logger.warning("Failed to parse ComfyUI JSON: %s", e)
+        return None
+
     if not isinstance(data, dict):
         return None
 
@@ -60,21 +77,27 @@ def _parse_comfyui(metadata):
         nonlocal positive, negative
         if node.get("class_type") in {"CLIPTextEncode", "CLIPTextEncodeSDXL"}:
             widgets = node.get("widgets_values")
-            if isinstance(widgets, list) and widgets:
-                if positive is None:
-                    positive = widgets[0] if isinstance(widgets[0], str) else None
-                if len(widgets) > 1 and negative is None:
-                    negative = widgets[1] if isinstance(widgets[1], str) else None
+            if isinstance(widgets, list):
+                if len(widgets) > 0 and positive is None and isinstance(widgets[0], str):
+                    positive = widgets[0]
+                if len(widgets) > 1 and negative is None and isinstance(widgets[1], str):
+                    negative = widgets[1]
+            inputs = node.get("inputs", {})
+            if positive is None and isinstance(inputs.get("text"), str):
+                positive = inputs.get("text")
+            if negative is None and isinstance(inputs.get("negative"), str):
+                negative = inputs.get("negative")
 
-    if isinstance(nodes, list):
-        for node in nodes:
-            if isinstance(node, dict):
-                handle_node(node)
-    elif isinstance(nodes, dict):
+    if isinstance(nodes, dict):
         for node in nodes.values():
             if isinstance(node, dict):
                 handle_node(node)
+    elif isinstance(nodes, list):
+        for node in nodes:
+            if isinstance(node, dict):
+                handle_node(node)
 
-    if positive:
-        return {"prompt": positive, "negative_prompt": negative or ""}
+    if positive or negative:
+        return {"prompt": positive or "", "negative_prompt": negative or ""}
     return None
+
