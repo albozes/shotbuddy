@@ -81,7 +81,7 @@ class FileHandler:
                     prompt_text = prompt_data['prompt'].strip()
                     neg = prompt_data.get('negative_prompt', '').strip()
                     if neg:
-                        prompt_text += f"\nNegative: {neg}"
+                        prompt_text += f"\n\nNegative: {neg}"
                     try:
                         manager = get_shot_manager(self.project_path)
                         manager.save_prompt(shot_name, 'image', version, prompt_text)
