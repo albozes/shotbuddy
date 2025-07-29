@@ -137,6 +137,10 @@
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('main-interface').style.display = 'block';
             document.getElementById('project-title').textContent = currentProject.name;
+            const input = document.getElementById('manual-path-input');
+            if (input && currentProject && currentProject.path) {
+                input.value = currentProject.path;
+            }
         }
 
         async function loadShots(rowId = null) {

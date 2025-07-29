@@ -22,9 +22,6 @@
             <button class="dark-button" onclick="openCreateProjectModal()">
                 Create New Project at Path
             </button>
-            <button class="dark-button" onclick="openShotsFolder()" style="margin-left: auto;">
-                Open Project Shots Folder
-            </button>
         </div>
     </div>
 
@@ -41,7 +38,12 @@
     <div id="main-interface" style="display: none;">
         <div class="header">
             <h1 class="project-title" id="project-title">Loading...</h1>
-            <button class="green-button new-shot-btn" onclick="addNewShot()">New Shot +</button>
+            <div class="header-controls">
+                <button class="dark-button icon-button" onclick="openShotsFolder()" title="Open Project Shots Folder">
+                    <img src="{{ url_for('static', filename='/icons/folder_24.png') }}" alt="Open Project Shots Folder" />
+                </button>
+                <button class="green-button" onclick="addNewShot()">New Shot +</button>
+            </div>
         </div>
 
         <div class="container">
