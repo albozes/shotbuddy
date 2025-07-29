@@ -26,12 +26,13 @@
 
         /* Menu Bar */
         .menu-bar {
-            background: transparent;
-            border-bottom: 1px solid #404040;
+            background: #111;
+            border-bottom: 1px solid #333;
             padding: 0px;
             display: flex;
             gap: 20px;
             font-size: 14px;
+            width: 100%;
         }
 
         .dark-button {
@@ -65,9 +66,8 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: #111;
             padding: 15px 20px;
-            border-bottom: 1px solid #333;
+            width: 100%;
         }
 
         .path-input {
