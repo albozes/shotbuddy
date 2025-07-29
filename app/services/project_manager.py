@@ -63,9 +63,6 @@ class ProjectManager:
             'shots': []
         }
 
-        with (project_dir / 'project.json').open('w') as f:
-            json.dump(project_info, f, indent=2)
-
         self.set_current_project(project_dir)
         return project_info
 
@@ -86,22 +83,30 @@ class ProjectManager:
             return None
         from app.utils import sanitize_path
         project_path = sanitize_path(project_path).resolve()
-        project_file = project_path / 'project.json'
+        shots_dir = project_path / 'shots'
 
-        if project_file.exists():
-            with project_file.open('r') as f:
-                return json.load(f)
+        if shots_dir.exists():
+            created = datetime.fromtimestamp(project_path.stat().st_ctime).isoformat()
+            return {
+                'name': project_path.name,
+                'path': str(project_path),
+                'created': created,
+                'shots': []
+            }
 
         for recent in self.projects.get('recent_projects', []):
-            from app.utils import sanitize_path
             recent_path = sanitize_path(recent).resolve()
-            fallback = recent_path / 'project.json'
-            if fallback.exists():
+            if (recent_path / 'shots').exists():
                 logger.info("Falling back to recent project: %s", recent_path)
                 self.set_current_project(recent_path)
-                with fallback.open('r') as f:
-                    return json.load(f)
+                created = datetime.fromtimestamp(recent_path.stat().st_ctime).isoformat()
+                return {
+                    'name': recent_path.name,
+                    'path': str(recent_path),
+                    'created': created,
+                    'shots': []
+                }
 
-        logger.error("No valid project.json found.")
+        logger.error("No valid project found.")
         return None
 

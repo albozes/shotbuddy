@@ -121,3 +121,7 @@ Via the "P" button on each asset thumbnail, prompts can be documented. A version
 Notes on individual shots can be made easily.
 
 ![Shotbuddy_04](https://github.com/user-attachments/assets/7567416e-3f4b-42d0-888c-b8296b261616)
+
+## License
+This project is licensed under the [MIT License](./LICENSE.md).
+Some third-party assets (e.g., icons) are included under their own licenses, as detailed in the [THIRD_PARTY_LICENSES](./THIRD_PARTY_LICENSES.md) file.

@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template, current_app
 from pathlib import Path
-import json
 from datetime import datetime
 import logging
 
@@ -36,10 +35,16 @@ def get_recent_projects():
         project_manager = current_app.config['PROJECT_MANAGER']
         recent_projects = []
         for project_path in project_manager.projects.get('recent_projects', []):
-            project_file = Path(project_path) / 'project.json'
-            if project_file.exists():
-                with project_file.open('r') as f:
-                    recent_projects.append(json.load(f))
+            p = Path(project_path)
+            shots_dir = p / 'shots'
+            if shots_dir.exists():
+                created = datetime.fromtimestamp(p.stat().st_ctime).isoformat()
+                recent_projects.append({
+                    "name": p.name,
+                    "path": str(p.resolve()),
+                    "created": created,
+                    "shots": []
+                })
         return jsonify({"success": True, "data": recent_projects})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -55,36 +60,21 @@ def open_project():
         from app.utils import sanitize_path
         project_path = sanitize_path(project_path).resolve()
         path_str = str(project_path)
-        project_file = project_path / "project.json"
         shots_dir = project_path / "shots"
 
         logger.debug("Received raw path from frontend: %s", request.get_json())
         logger.debug("Looking at path: %s", project_path)
-        logger.debug("Expecting project.json at: %s", project_file)
         logger.debug("shots/ folder exists? %s", shots_dir.exists())
 
-        if project_file.exists():
-            try:
-                with project_file.open('r') as f:
-                    project_info = json.load(f)
-                # Ensure the stored path reflects the actual location
-                if project_info.get("path") != path_str:
-                    project_info["path"] = path_str
-                    with project_file.open('w') as wf:
-                        json.dump(project_info, wf, indent=2)
-            except Exception as e:
-                return jsonify({"success": False, "error": f"project.json exists but failed to load: {e}"}), 400
-        elif shots_dir.exists():
-            project_info = {
-                "name": project_path.name,
-                "path": path_str,
-                "created": datetime.now().isoformat(),
-                "shots": []
-            }
-            with project_file.open('w') as f:
-                json.dump(project_info, f, indent=2)
-        else:
+        if not shots_dir.exists():
             return jsonify({"success": False, "error": "No recognizable project structure"}), 400
+
+        project_info = {
+            "name": project_path.name,
+            "path": path_str,
+            "created": datetime.fromtimestamp(project_path.stat().st_ctime).isoformat(),
+            "shots": []
+        }
 
         # Ensure new folder layout exists
         (shots_dir / "wip").mkdir(parents=True, exist_ok=True)
@@ -142,10 +132,6 @@ def create_project():
             "created": datetime.now().isoformat(),
             "shots": []
         }
-
-        # Write the project file first
-        with (project_dir / "project.json").open('w') as f:
-            json.dump(project_info, f, indent=2)
 
         # Defensive state update
         path_str = str(resolved_dir)
