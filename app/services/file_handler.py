@@ -4,7 +4,7 @@ from PIL import Image
 import logging
 
 logger = logging.getLogger(__name__)
-from app.services.shot_manager import get_shot_manager
+from app.services.shot_manager import get_shot_manager, validate_shot_name
 from app.config.constants import (
     ALLOWED_IMAGE_EXTENSIONS,
     ALLOWED_VIDEO_EXTENSIONS,
@@ -150,3 +150,49 @@ class FileHandler:
         except Exception as e:
             logger.warning("Error creating thumbnail: %s", e)
             return None
+
+    def set_latest_version(self, shot_name, asset_type, version):
+        """Replace the latest asset with the specified version."""
+        validate_shot_name(shot_name)
+        version = int(version)
+
+        if asset_type == 'image':
+            wip_dir = self.wip_dir / shot_name / 'images'
+            final_dir = self.latest_images_dir
+            allowed = ALLOWED_IMAGE_EXTENSIONS
+        elif asset_type == 'video':
+            wip_dir = self.wip_dir / shot_name / 'videos'
+            final_dir = self.latest_videos_dir
+            allowed = ALLOWED_VIDEO_EXTENSIONS
+        else:
+            raise ValueError('Invalid asset type')
+
+        src = None
+        ext = None
+        for e in allowed:
+            candidate = wip_dir / f'{shot_name}_v{version:03d}{e}'
+            if candidate.exists():
+                src = candidate
+                ext = e
+                break
+
+        if not src:
+            raise ValueError('Specified version not found')
+
+        final_dir.mkdir(parents=True, exist_ok=True)
+        final_path = final_dir / f'{shot_name}{ext}'
+
+        for existing in final_dir.glob(f'{shot_name}.*'):
+            existing.unlink()
+
+        shutil.copy2(str(src), str(final_path))
+
+        thumb = None
+        if asset_type == 'image':
+            thumb = self.create_thumbnail(str(final_path), shot_name)
+
+        return {
+            'final_path': str(final_path).replace('\\', '/'),
+            'version': version,
+            'thumbnail': f"static/thumbnails/{Path(thumb).name}" if thumb else None,
+        }

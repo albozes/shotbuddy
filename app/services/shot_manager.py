@@ -429,6 +429,31 @@ class ShotManager:
                     continue
         return sorted(set(versions))
 
+    def get_asset_versions(self, shot_name, asset_type):
+        """Return a sorted list of available asset versions."""
+        validate_shot_name(shot_name)
+
+        if asset_type == 'image':
+            base_dir = self.wip_dir / shot_name / 'images'
+            extensions = ALLOWED_IMAGE_EXTENSIONS
+        elif asset_type == 'video':
+            base_dir = self.wip_dir / shot_name / 'videos'
+            extensions = ALLOWED_VIDEO_EXTENSIONS
+        else:
+            raise ValueError('Invalid asset type')
+
+        versions = []
+        if base_dir.exists():
+            for ext in extensions:
+                for f in base_dir.glob(f'{shot_name}_v*{ext}'):
+                    try:
+                        ver_str = f.stem.split('_v')[1]
+                        versions.append(int(ver_str))
+                    except (IndexError, ValueError):
+                        continue
+
+        return sorted(set(versions), reverse=True)
+
     def get_thumbnail_path(self, image_path, shot_name):
         """Return (and create if necessary) the thumbnail for an image."""
         if not image_path:

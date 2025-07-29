@@ -274,7 +274,15 @@
                                 style="${thumbnailStyle}"
                                 onclick="revealFile('${file.file}')"></div>
 
-                            <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                            <div class="asset-version-select version-select">
+                                <button class="pill-button asset-version-btn"
+                                        data-shot="${shot.name}"
+                                        data-type="${type}"
+                                        onclick="toggleAssetVersionDropdown(this)">
+                                    v${String(file.version).padStart(3, '0')} \u25BE
+                                </button>
+                                <div class="dropdown-menu"></div>
+                            </div>
                             <button class="prompt-button"
                                     title="View and edit prompt"
                                     data-shot="${shot.name}"
@@ -314,7 +322,15 @@
                         <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
                             <div class="file-preview lipsync-preview">
                                 <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
-                                <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                                <div class="asset-version-select version-select">
+                                    <button class="pill-button asset-version-btn"
+                                            data-shot="${shot.name}"
+                                            data-type="${part}"
+                                            onclick="toggleAssetVersionDropdown(this)">
+                                        v${String(file.version).padStart(3, '0')} \u25BE
+                                    </button>
+                                    <div class="dropdown-menu"></div>
+                                </div>
                                 <button class="prompt-button" title="View and edit prompt"
                                         data-shot="${shot.name}"
                                         data-type="${part}"
@@ -621,6 +637,53 @@ async function revealFile(relPath) {
                 console.error("Reveal failed:", e);
                 showNotification('Reveal failed', 'error');
     }
+}
+
+async function toggleAssetVersionDropdown(btn) {
+    const menu = btn.nextElementSibling;
+    if (!menu.dataset.loaded) {
+        const shotName = btn.dataset.shot;
+        const assetType = btn.dataset.type;
+        try {
+            const resp = await fetch(`/api/shots/asset-versions?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}`);
+            const data = await resp.json();
+            if (data.success) {
+                menu.innerHTML = '';
+                data.data.forEach(v => {
+                    const item = document.createElement('div');
+                    item.className = 'dropdown-item';
+                    item.textContent = `v${String(v).padStart(3, '0')}`;
+                    item.onclick = () => selectAssetVersion(btn, shotName, assetType, v);
+                    menu.appendChild(item);
+                });
+                menu.dataset.loaded = '1';
+            }
+        } catch (e) {
+            console.error('Failed to load versions:', e);
+        }
+    }
+    menu.classList.toggle('show');
+}
+
+async function selectAssetVersion(btn, shotName, assetType, version) {
+    try {
+        const response = await fetch('/api/shots/set-latest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version })
+        });
+        const result = await response.json();
+        if (result.success) {
+            loadShots(`shot-row-${shotName}`);
+        } else {
+            showNotification(result.error || 'Failed to switch version', 'error');
+        }
+    } catch (e) {
+        console.error('Switch version failed:', e);
+        showNotification('Failed to switch version', 'error');
+    }
+    const menu = btn.nextElementSibling;
+    if (menu) menu.classList.remove('show');
 }
 
 async function fetchPrompt(shotName, assetType, version) {
