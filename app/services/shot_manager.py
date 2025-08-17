@@ -7,15 +7,28 @@ logger = logging.getLogger(__name__)
 
 # Shot names may optionally contain a single underscore followed by another
 # three-digit number (e.g. ``SH001_050``).  Deeper nesting with multiple
-# underscores is not allowed.
-SHOT_NAME_RE = re.compile(r"^SH\d{3}(?:_\d{3})?$")
+# underscores is not allowed.  Names are validated case-insensitively.
+SHOT_NAME_RE = re.compile(r"^SH\d{3}(?:_\d{3})?$", re.IGNORECASE)
 
 
 def validate_shot_name(name):
+    """Validate and sanitize a shot name.
+
+    Leading/trailing whitespace is stripped and the name is uppercased prior to
+    validation.  The sanitized name is returned.
+    """
+
+    if not isinstance(name, str):
+        raise ValueError("Invalid shot name: not a string")
+
+    name = name.strip().upper()
+
     if not SHOT_NAME_RE.match(name):
         raise ValueError(f"Invalid shot name: {name}")
     if name == "SH000":
         raise ValueError("Invalid shot name: SH000")
+
+    return name
 
 
 def _parse_shot_parts(name):
@@ -59,8 +72,8 @@ class ShotManager:
 
     def rename_shot(self, old_name, new_name):
         """Rename a shot and all associated files."""
-        validate_shot_name(old_name)
-        validate_shot_name(new_name)
+        old_name = validate_shot_name(old_name)
+        new_name = validate_shot_name(new_name)
         old_dir = self.wip_dir / old_name
         new_dir = self.wip_dir / new_name
 
@@ -105,7 +118,7 @@ class ShotManager:
 
     def create_shot_structure(self, shot_name):
         """Create folder structure for a shot."""
-        validate_shot_name(shot_name)
+        shot_name = validate_shot_name(shot_name)
         shot_dir = self.wip_dir / shot_name
         shot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -159,7 +172,7 @@ class ShotManager:
         """
 
         if after_shot:
-            validate_shot_name(after_shot)
+            after_shot = validate_shot_name(after_shot)
 
         existing = [s["name"] for s in self.get_shots()]
 
@@ -200,7 +213,7 @@ class ShotManager:
                     new_number = after_num + 10
                     shot_name = f"SH{new_number:03d}"
 
-        validate_shot_name(shot_name)
+        shot_name = validate_shot_name(shot_name)
         if shot_name in existing:
             raise ValueError(f"Shot {shot_name} already exists")
 
@@ -235,7 +248,7 @@ class ShotManager:
 
     def get_shot_info(self, shot_name):
         """Get information about a specific shot."""
-        validate_shot_name(shot_name)
+        shot_name = validate_shot_name(shot_name)
         shot_dir = self.wip_dir / shot_name
 
         # Load notes
@@ -349,7 +362,7 @@ class ShotManager:
 
     def save_shot_notes(self, shot_name, notes):
         """Save notes for a shot."""
-        validate_shot_name(shot_name)
+        shot_name = validate_shot_name(shot_name)
         shot_dir = self.wip_dir / shot_name
         if not shot_dir.exists():
             raise ValueError(f"Shot {shot_name} does not exist")
@@ -389,7 +402,7 @@ class ShotManager:
 
     def save_prompt(self, shot_name, asset_type, version, prompt):
         """Save prompt for a specific asset version."""
-        validate_shot_name(shot_name)
+        shot_name = validate_shot_name(shot_name)
         path = self._prompt_file_path(shot_name, asset_type, version)
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -429,7 +442,7 @@ class ShotManager:
 
     def get_asset_versions(self, shot_name, asset_type):
         """Return a sorted list of available WIP versions for an asset."""
-        validate_shot_name(shot_name)
+        shot_name = validate_shot_name(shot_name)
         shot_dir = self.wip_dir / shot_name
         if asset_type == 'image':
             base_dir = shot_dir / 'images'
