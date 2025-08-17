@@ -159,7 +159,7 @@
         .shot-grid {
             background: #252525;
             border-radius: 12px;
-            overflow: hidden;
+            overflow: visible;
             box-shadow: 0 2px 20px rgba(0,0,0,0.3);
         }
 
@@ -582,9 +582,9 @@
         }
 
         .version-dropdown {
-            top: auto;
+            top: calc(100% + 4px);
             left: 4px;
-            bottom: 24px;
+            bottom: auto;
         }
 
         .dropdown-item {
