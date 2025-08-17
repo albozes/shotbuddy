@@ -427,6 +427,35 @@ class ShotManager:
                     continue
         return sorted(set(versions))
 
+    def get_asset_versions(self, shot_name, asset_type):
+        """Return a sorted list of available WIP versions for an asset."""
+        validate_shot_name(shot_name)
+        shot_dir = self.wip_dir / shot_name
+        if asset_type == 'image':
+            base_dir = shot_dir / 'images'
+            base = shot_name
+            exts = ALLOWED_IMAGE_EXTENSIONS
+        elif asset_type == 'video':
+            base_dir = shot_dir / 'videos'
+            base = shot_name
+            exts = ALLOWED_VIDEO_EXTENSIONS
+        elif asset_type in {'driver', 'target', 'result'}:
+            base_dir = shot_dir / 'lipsync'
+            base = f'{shot_name}_{asset_type}'
+            exts = ALLOWED_VIDEO_EXTENSIONS
+        else:
+            raise ValueError('Invalid asset type')
+
+        versions = []
+        if base_dir.exists():
+            for ext in exts:
+                for f in base_dir.glob(f'{base}_v*{ext}'):
+                    try:
+                        versions.append(int(f.stem.split('_v')[1]))
+                    except (IndexError, ValueError):
+                        continue
+        return sorted(set(versions))
+
     def get_thumbnail_path(self, image_path, shot_name):
         """Return (and create if necessary) the thumbnail for an image."""
         if not image_path:
