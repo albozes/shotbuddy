@@ -122,6 +122,60 @@ class FileHandler:
             'thumbnail': f"static/thumbnails/{Path(thumbnail_path).name}" if thumbnail_path else None
         }
 
+    def use_version(self, shot_name, file_type, version):
+        """Replace the latest asset with an existing WIP version."""
+        shot_dir = self.wip_dir / shot_name
+        if file_type == 'image':
+            wip_dir = shot_dir / 'images'
+            final_dir = self.latest_images_dir
+            base = shot_name
+            exts = ALLOWED_IMAGE_EXTENSIONS
+            thumb_key = shot_name
+        elif file_type == 'video':
+            wip_dir = shot_dir / 'videos'
+            final_dir = self.latest_videos_dir
+            base = shot_name
+            exts = ALLOWED_VIDEO_EXTENSIONS
+            thumb_key = shot_name
+        elif file_type in {'driver', 'target', 'result'}:
+            wip_dir = shot_dir / 'lipsync'
+            final_dir = wip_dir
+            base = f'{shot_name}_{file_type}'
+            exts = ALLOWED_VIDEO_EXTENSIONS
+            thumb_key = base
+        else:
+            raise ValueError('Invalid file type')
+
+        wip_path = None
+        if wip_dir.exists():
+            for ext in exts:
+                candidate = wip_dir / f'{base}_v{int(version):03d}{ext}'
+                if candidate.exists():
+                    wip_path = candidate
+                    break
+        if not wip_path:
+            raise ValueError('Version not found')
+
+        final_dir.mkdir(parents=True, exist_ok=True)
+        for ext in exts:
+            existing = final_dir / f'{base}{ext}'
+            if existing.exists():
+                existing.unlink()
+
+        final_path = final_dir / f'{base}{wip_path.suffix}'
+        shutil.copy2(str(wip_path), str(final_path))
+
+        if file_type == 'image':
+            thumb = self.create_thumbnail(str(final_path), shot_name)
+        else:
+            thumb = self.create_video_thumbnail(str(final_path), thumb_key)
+
+        return {
+            'file': str(final_path).replace('\\', '/'),
+            'version': int(version),
+            'thumbnail': f"static/thumbnails/{Path(thumb).name}" if thumb else None,
+        }
+
     def get_next_version(self, wip_dir, shot_name, file_ext):
         if not wip_dir.exists():
             return 1

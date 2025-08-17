@@ -156,6 +156,53 @@ def get_prompt_versions():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@shot_bp.route("/versions")
+def get_asset_versions():
+    try:
+        shot_name = request.args.get("shot_name")
+        asset_type = request.args.get("asset_type")
+        if not shot_name or not asset_type:
+            return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+        project_manager = current_app.config['PROJECT_MANAGER']
+        project = project_manager.get_current_project()
+        if not project:
+            return jsonify({"success": False, "error": "No current project"}), 400
+
+        shot_manager = get_shot_manager(project["path"])
+        versions = shot_manager.get_asset_versions(shot_name, asset_type)
+        return jsonify({"success": True, "data": versions})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@shot_bp.route("/use-version", methods=["POST"])
+def use_version():
+    try:
+        data = request.get_json()
+        shot_name = data.get("shot_name")
+        asset_type = data.get("asset_type")
+        version = data.get("version")
+
+        if not shot_name or not asset_type or version is None:
+            return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+        project_manager = current_app.config['PROJECT_MANAGER']
+        project = project_manager.get_current_project()
+        if not project:
+            return jsonify({"success": False, "error": "No current project"}), 400
+
+        file_handler = FileHandler(project['path'])
+        result = file_handler.use_version(shot_name, asset_type, int(version))
+
+        shot_manager = get_shot_manager(project["path"])
+        prompt = shot_manager.load_prompt(shot_name, asset_type, int(version))
+        result['prompt'] = prompt
+        return jsonify({"success": True, "data": result})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @shot_bp.route("/rename", methods=["POST"])
 def rename_shot():
     try:
