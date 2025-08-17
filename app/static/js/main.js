@@ -789,19 +789,24 @@ async function toggleAssetVersionDropdown(badge) {
         try {
             const resp = await fetch(`/api/shots/versions?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}`);
             const data = await resp.json();
-            if (data.success) {
-                menu.innerHTML = '';
-                data.data.sort((a, b) => b - a).forEach(v => {
-                    const item = document.createElement('div');
-                    item.className = 'dropdown-item';
-                    item.textContent = `v${String(v).padStart(3, '0')}`;
-                    item.onclick = () => selectAssetVersion(badge, v);
-                    menu.appendChild(item);
-                });
-                menu.dataset.loaded = 'true';
+            if (!resp.ok || !data.success) {
+                console.error('Failed to load versions:', resp.status, resp.statusText, data.error || data);
+                showNotification('Unable to load versions', 'error');
+                return;
             }
+            menu.innerHTML = '';
+            data.data.sort((a, b) => b - a).forEach(v => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.textContent = `v${String(v).padStart(3, '0')}`;
+                item.onclick = () => selectAssetVersion(badge, v);
+                menu.appendChild(item);
+            });
+            menu.dataset.loaded = 'true';
         } catch (e) {
             console.error('Failed to load versions:', e);
+            showNotification('Unable to load versions', 'error');
+            return;
         }
     }
     menu.classList.toggle('show');
