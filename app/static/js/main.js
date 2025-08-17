@@ -278,7 +278,7 @@
                                 style="${thumbnailStyle}"
                                 onclick="revealFile('${file.file}')"></div>
 
-                            <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                              <div class="version-badge">v${String(file.version).padStart(3, '0')} &#9662;</div>
                             <button class="prompt-button"
                                     title="View and edit prompt"
                                     data-shot="${shot.name}"
@@ -318,7 +318,7 @@
                         <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
                             <div class="file-preview lipsync-preview">
                                 <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
-                                <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                                <div class="version-badge">v${String(file.version).padStart(3, '0')} &#9662;</div>
                                 <button class="prompt-button" title="View and edit prompt"
                                         data-shot="${shot.name}"
                                         data-type="${part}"
