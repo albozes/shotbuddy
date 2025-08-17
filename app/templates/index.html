@@ -99,6 +99,21 @@
         </div>
     </div>
 
+    <!-- Version Replace Modal -->
+    <div id="version-confirm-modal" class="modal">
+        <div class="modal-content">
+            <p id="version-confirm-text"></p>
+            <label style="display: flex; align-items: center; gap: 6px; margin: 10px 0;">
+                <input type="checkbox" id="version-confirm-dont-ask" />
+                <span>Don't ask me again.</span>
+            </label>
+            <div class="modal-buttons">
+                <button class="dark-button" onclick="confirmVersionReplace()">OK</button>
+                <button class="dark-button" onclick="cancelVersionReplace()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <footer class='app-footer'>
         Created by <a href="https://albertbozesan.com/">Albert Bozesan</a> with ChatGPT Codex
     </footer>

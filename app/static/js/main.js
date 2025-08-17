@@ -277,8 +277,8 @@
                             <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}"
                                 style="${thumbnailStyle}"
                                 onclick="revealFile('${file.file}')"></div>
-
-                              <div class="version-badge">v${String(file.version).padStart(3, '0')} &#9662;</div>
+                              <div class="version-badge" data-shot="${shot.name}" data-type="${type}" data-version="${file.version}" onclick="toggleAssetVersionDropdown(this)">v${String(file.version).padStart(3, '0')} &#9662;</div>
+                              <div class="dropdown-menu version-dropdown"></div>
                             <button class="prompt-button"
                                     title="View and edit prompt"
                                     data-shot="${shot.name}"
@@ -318,7 +318,8 @@
                         <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
                             <div class="file-preview lipsync-preview">
                                 <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
-                                <div class="version-badge">v${String(file.version).padStart(3, '0')} &#9662;</div>
+                                <div class="version-badge" data-shot="${shot.name}" data-type="${part}" data-version="${file.version}" onclick="toggleAssetVersionDropdown(this)">v${String(file.version).padStart(3, '0')} &#9662;</div>
+                                <div class="dropdown-menu version-dropdown"></div>
                                 <button class="prompt-button" title="View and edit prompt"
                                         data-shot="${shot.name}"
                                         data-type="${part}"
@@ -776,6 +777,124 @@ async function savePrompt() {
         showNotification('Error saving prompt', 'error');
     }
     closePromptModal();
+}
+
+let versionConfirmResolve = null;
+
+async function toggleAssetVersionDropdown(badge) {
+    const menu = badge.nextElementSibling;
+    const shotName = badge.dataset.shot;
+    const assetType = badge.dataset.type;
+    if (!menu.dataset.loaded) {
+        try {
+            const resp = await fetch(`/api/shots/versions?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}`);
+            const data = await resp.json();
+            if (data.success) {
+                menu.innerHTML = '';
+                data.data.sort((a, b) => b - a).forEach(v => {
+                    const item = document.createElement('div');
+                    item.className = 'dropdown-item';
+                    item.textContent = `v${String(v).padStart(3, '0')}`;
+                    item.onclick = () => selectAssetVersion(badge, v);
+                    menu.appendChild(item);
+                });
+                menu.dataset.loaded = 'true';
+            }
+        } catch (e) {
+            console.error('Failed to load versions:', e);
+        }
+    }
+    menu.classList.toggle('show');
+}
+
+async function selectAssetVersion(badge, version) {
+    const menu = badge.nextElementSibling;
+    menu.classList.remove('show');
+    const currentVersion = parseInt(badge.dataset.version, 10);
+    if (version === currentVersion) {
+        return;
+    }
+    const proceed = await askVersionReplace(currentVersion);
+    if (!proceed) {
+        return;
+    }
+    const shotName = badge.dataset.shot;
+    const assetType = badge.dataset.type;
+    try {
+        const resp = await fetch('/api/shots/use-version', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shot_name: shotName, asset_type: assetType, version })
+        });
+        const result = await resp.json();
+        if (!result.success) {
+            showNotification(result.error || 'Failed to switch version', 'error');
+            return;
+        }
+        badge.dataset.version = version;
+        badge.innerHTML = `v${String(version).padStart(3, '0')} &#9662;`;
+        const shot = shots.find(s => s.name === shotName);
+        if (shot) {
+            let asset;
+            if (assetType === 'image' || assetType === 'video') {
+                asset = shot[assetType];
+            } else if (shot.lipsync && shot.lipsync[assetType]) {
+                asset = shot.lipsync[assetType];
+            }
+            if (asset) {
+                asset.version = version;
+                asset.file = result.data.file;
+                asset.thumbnail = result.data.thumbnail;
+                asset.prompt = result.data.prompt || '';
+            }
+        }
+        const preview = badge.parentElement.querySelector('.preview-thumbnail');
+        if (preview) {
+            if (result.data.thumbnail) {
+                preview.style.backgroundImage = `url('${result.data.thumbnail}?v=${Date.now()}')`;
+                preview.style.backgroundSize = 'cover';
+                preview.style.backgroundPosition = 'center';
+            }
+            preview.setAttribute('onclick', `revealFile('${result.data.file}')`);
+        }
+    } catch (e) {
+        console.error('Failed to switch version:', e);
+        showNotification('Failed to switch version', 'error');
+    }
+}
+
+function askVersionReplace(current) {
+    if (localStorage.getItem('skipVersionConfirm') === 'true') {
+        return Promise.resolve(true);
+    }
+    return new Promise(resolve => {
+        versionConfirmResolve = resolve;
+        document.getElementById('version-confirm-text').textContent =
+            `This action will replace the current latest version v${String(current).padStart(3, '0')} with the version you've selected. Proceed?`;
+        document.getElementById('version-confirm-modal').style.display = 'flex';
+    });
+}
+
+function confirmVersionReplace() {
+    const dontAsk = document.getElementById('version-confirm-dont-ask').checked;
+    if (dontAsk) {
+        localStorage.setItem('skipVersionConfirm', 'true');
+    }
+    document.getElementById('version-confirm-dont-ask').checked = false;
+    document.getElementById('version-confirm-modal').style.display = 'none';
+    if (versionConfirmResolve) {
+        versionConfirmResolve(true);
+        versionConfirmResolve = null;
+    }
+}
+
+function cancelVersionReplace() {
+    document.getElementById('version-confirm-dont-ask').checked = false;
+    document.getElementById('version-confirm-modal').style.display = 'none';
+    if (versionConfirmResolve) {
+        versionConfirmResolve(false);
+        versionConfirmResolve = null;
+    }
 }
 
 async function openShotsFolder() {
