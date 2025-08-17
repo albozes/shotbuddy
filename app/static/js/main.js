@@ -5,6 +5,18 @@
         const NEW_SHOT_DROP_TEXT = 'Drop an asset here to create a new shot.';
         document.documentElement.style.setProperty('--new-shot-drop-text', `'${NEW_SHOT_DROP_TEXT}'`);
 
+        const ASSET_TYPE_MAP = {
+            image: 'image',
+            video: 'video',
+            driver: 'driver',
+            target: 'target',
+            result: 'result'
+        };
+
+        function mapAssetType(type) {
+            return ASSET_TYPE_MAP[type] || null;
+        }
+
         // Menu functions
 
         async function loadProjectFromManualPath() {
@@ -791,7 +803,12 @@ let versionConfirmResolve = null;
 async function toggleAssetVersionDropdown(badge) {
     const menu = badge.nextElementSibling;
     const shotName = badge.dataset.shot;
-    const assetType = badge.dataset.type;
+    const assetType = mapAssetType(badge.dataset.type);
+    if (!assetType) {
+        console.error('Unknown asset type:', badge.dataset.type);
+        showNotification('Unknown asset type', 'error');
+        return;
+    }
     if (!menu.dataset.loaded) {
         try {
             const resp = await fetch(`/api/shots/versions?shot_name=${encodeURIComponent(shotName)}&asset_type=${assetType}`);
@@ -831,7 +848,12 @@ async function selectAssetVersion(badge, version) {
         return;
     }
     const shotName = badge.dataset.shot;
-    const assetType = badge.dataset.type;
+    const assetType = mapAssetType(badge.dataset.type);
+    if (!assetType) {
+        console.error('Unknown asset type:', badge.dataset.type);
+        showNotification('Unknown asset type', 'error');
+        return;
+    }
     try {
         const resp = await fetch('/api/shots/use-version', {
             method: 'POST',
