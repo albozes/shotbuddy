@@ -448,12 +448,18 @@ class ShotManager:
 
         versions = []
         if base_dir.exists():
-            for ext in exts:
-                for f in base_dir.glob(f'{base}_v*{ext}'):
-                    try:
-                        versions.append(int(f.stem.split('_v')[1]))
-                    except (IndexError, ValueError):
-                        continue
+            base_lower = base.lower()
+            for f in base_dir.iterdir():
+                if not f.is_file() or f.suffix.lower() not in exts:
+                    continue
+                name = f.stem.lower()
+                if not name.startswith(f"{base_lower}_v"):
+                    continue
+                try:
+                    ver = name.split("_v", 1)[1].split("_", 1)[0]
+                    versions.append(int(ver))
+                except (IndexError, ValueError):
+                    continue
         return sorted(set(versions))
 
     def get_thumbnail_path(self, image_path, shot_name):
