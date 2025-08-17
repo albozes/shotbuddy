@@ -431,7 +431,14 @@
 
                 if (result.success) {
                     showNotification(`${file.name} uploaded successfully!`);
-                    loadShots(`shot-row-${shotName}`); // Refresh and keep scroll
+                    await loadShots(`shot-row-${shotName}`); // Refresh and keep scroll
+                    const badge = document.querySelector(`.version-badge[data-shot="${shotName}"][data-type="${fileType}"]`);
+                    if (badge && badge.nextElementSibling) {
+                        const menu = badge.nextElementSibling;
+                        delete menu.dataset.loaded;
+                        await toggleAssetVersionDropdown(badge);
+                        menu.classList.remove('show');
+                    }
                 } else {
                     showNotification(result.error || 'Upload failed', 'error');
                 }
@@ -862,6 +869,9 @@ async function selectAssetVersion(badge, version) {
             }
             preview.setAttribute('onclick', `revealFile('${result.data.file}')`);
         }
+        delete menu.dataset.loaded;
+        await toggleAssetVersionDropdown(badge);
+        menu.classList.remove('show');
     } catch (e) {
         console.error('Failed to switch version:', e);
         showNotification('Failed to switch version', 'error');
