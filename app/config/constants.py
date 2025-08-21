@@ -15,3 +15,6 @@ THUMBNAIL_CACHE_DIR = BASE_DIR / "static" / "thumbnails"
 
 # Default thumbnail resolution (width, height)
 THUMBNAIL_SIZE = (240, 180)
+
+# SQLite database used for storing stories and their episodes
+STORIES_DB_PATH = BASE_DIR / "stories.db"
