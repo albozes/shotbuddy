@@ -99,6 +99,24 @@
         </div>
     </div>
 
+    <!-- Shot Limit Warning Modal -->
+    <div id="shot-limit-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px;">Project is Full</h3>
+            <p style="margin-bottom: 15px; color: #b5b5b5; line-height: 1.5;">
+                This project has run out of available shot numbers.
+            </p>
+            <p style="margin-bottom: 20px; color: #808080; font-size: 14px; line-height: 1.5;">
+                <strong>Suggestion:</strong> Consider splitting your project into individual sequences,
+                treating each sequence as a separate project within Shotbuddy. This will help you
+                organize your work better and give you room to grow.
+            </p>
+            <div class="modal-buttons">
+                <button class="dark-button" onclick="closeShotLimitModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
     <footer class='app-footer'>
         Created by <a href="https://albertbozesan.com/">Albert Bozesan</a> with ChatGPT Codex
     </footer>
