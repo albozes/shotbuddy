@@ -14,7 +14,10 @@ class ProjectManager:
         self.projects = {
             'current_project': None,
             'recent_projects': [],
-            'last_scanned': {}
+            'last_scanned': {},
+            'settings': {
+                'thumbnail_click_behavior': 'latest_folder'  # 'latest_folder' or 'version_folder'
+            }
         }
         self.ensure_config_dir()
         self.load_projects()
@@ -37,6 +40,11 @@ class ProjectManager:
                     self.projects['last_scanned'] = {
                         str(Path(p).resolve()): ts for p, ts in loaded_scanned.items()
                     }
+                    # Ensure settings exist with defaults
+                    if 'settings' not in self.projects:
+                        self.projects['settings'] = {}
+                    if 'thumbnail_click_behavior' not in self.projects['settings']:
+                        self.projects['settings']['thumbnail_click_behavior'] = 'latest_folder'
             except Exception as e:
                 logger.warning("Failed to load projects.json: %s", e)
         logger.info("Loaded current project: %s", self.projects.get('current_project'))
@@ -114,4 +122,18 @@ class ProjectManager:
 
         logger.error("No valid project found.")
         return None
+
+    def get_settings(self):
+        """Get user settings."""
+        return self.projects.get('settings', {
+            'thumbnail_click_behavior': 'latest_folder'
+        })
+
+    def update_settings(self, settings_dict):
+        """Update user settings and save."""
+        if 'settings' not in self.projects:
+            self.projects['settings'] = {}
+        self.projects['settings'].update(settings_dict)
+        self.save_projects()
+        return self.projects['settings']
 
