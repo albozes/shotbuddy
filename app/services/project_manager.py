@@ -123,17 +123,76 @@ class ProjectManager:
         logger.error("No valid project found.")
         return None
 
+    def get_project_settings_file(self):
+        """Get path to project-specific settings file."""
+        project = self.get_current_project()
+        if not project:
+            return None
+        project_path = Path(project['path'])
+        return project_path / '.shotbuddy_settings.json'
+
+    def load_project_settings(self):
+        """Load project-specific settings from the project directory."""
+        settings_file = self.get_project_settings_file()
+        if settings_file and settings_file.exists():
+            try:
+                with settings_file.open('r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning("Failed to load project settings: %s", e)
+        return {}
+
+    def save_project_settings(self, project_settings):
+        """Save project-specific settings to the project directory."""
+        settings_file = self.get_project_settings_file()
+        if settings_file:
+            try:
+                with settings_file.open('w') as f:
+                    json.dump(project_settings, f, indent=2)
+                logger.info("Saved project settings to: %s", settings_file)
+            except Exception as e:
+                logger.warning("Failed to save project settings: %s", e)
+
     def get_settings(self):
-        """Get user settings."""
-        return self.projects.get('settings', {
+        """Get user settings (global + project-specific)."""
+        global_settings = self.projects.get('settings', {
             'thumbnail_click_behavior': 'latest_folder'
         })
+        project_settings = self.load_project_settings()
+
+        # Merge global and project settings
+        return {
+            'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
+            'collapsed_shots': project_settings.get('collapsed_shots', [])
+        }
 
     def update_settings(self, settings_dict):
-        """Update user settings and save."""
+        """Update user settings and save (handles both global and project-specific settings)."""
+        # Separate global settings from project-specific settings
+        global_settings_keys = ['thumbnail_click_behavior']
+        project_settings_keys = ['collapsed_shots']
+
+        # Update global settings
         if 'settings' not in self.projects:
             self.projects['settings'] = {}
-        self.projects['settings'].update(settings_dict)
-        self.save_projects()
-        return self.projects['settings']
+
+        for key in global_settings_keys:
+            if key in settings_dict:
+                self.projects['settings'][key] = settings_dict[key]
+
+        # Save global settings
+        if any(key in settings_dict for key in global_settings_keys):
+            self.save_projects()
+
+        # Update project-specific settings
+        project_settings = self.load_project_settings()
+        for key in project_settings_keys:
+            if key in settings_dict:
+                project_settings[key] = settings_dict[key]
+
+        # Save project-specific settings
+        if any(key in settings_dict for key in project_settings_keys):
+            self.save_project_settings(project_settings)
+
+        return self.get_settings()
 
