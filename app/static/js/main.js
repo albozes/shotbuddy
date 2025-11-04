@@ -836,7 +836,7 @@ function closeShotLimitModal() {
 
 // Settings Modal Functions
 let currentSettings = {
-    thumbnail_click_behavior: 'latest_folder'
+    thumbnail_click_behavior: 'version_folder'
 };
 
 async function loadSettings() {
@@ -857,7 +857,7 @@ async function openSettingsModal() {
 
     // Set the dropdown value
     const dropdown = document.getElementById('thumbnail-click-behavior');
-    dropdown.value = currentSettings.thumbnail_click_behavior || 'latest_folder';
+    dropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
 
     // Show the modal
     document.getElementById('settings-modal').style.display = 'flex';
