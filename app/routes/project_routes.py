@@ -22,19 +22,19 @@ def get_current_project():
         if project:
             project_path = Path(project["path"])
             path_str = str(project_path)
-            last_scanned = project_manager.projects.get("last_scanned", {}).get(path_str)
-            folder_mtime = project_path.stat().st_mtime
 
-            if (not last_scanned or
-                    folder_mtime > datetime.fromisoformat(last_scanned).timestamp()):
-                file_handler = FileHandler(path_str)
-                file_handler.clear_thumbnail_cache()
-                clear_shot_manager_cache()
-                get_shot_manager(path_str).get_shots()
-                project_manager.projects.setdefault("last_scanned", {})[path_str] = (
-                    datetime.fromtimestamp(folder_mtime).isoformat()
-                )
-                project_manager.save_projects()
+            # Always clear thumbnail cache when loading project to prevent showing wrong thumbnails
+            file_handler = FileHandler(path_str)
+            file_handler.clear_thumbnail_cache()
+            clear_shot_manager_cache()
+            get_shot_manager(path_str).get_shots()
+
+            # Update last scanned timestamp
+            folder_mtime = project_path.stat().st_mtime
+            project_manager.projects.setdefault("last_scanned", {})[path_str] = (
+                datetime.fromtimestamp(folder_mtime).isoformat()
+            )
+            project_manager.save_projects()
             return jsonify({"success": True, "data": project})
         return jsonify({"success": False, "error": "No current project"})
     except Exception as e:
@@ -99,18 +99,18 @@ def open_project():
             project_manager.projects['recent_projects'].insert(0, path_str)
             project_manager.projects['recent_projects'] = project_manager.projects['recent_projects'][:5]
 
-        last_scanned = project_manager.projects.get('last_scanned', {}).get(path_str)
+        # Always clear thumbnail cache when switching projects to prevent showing wrong thumbnails
+        file_handler = FileHandler(path_str)
+        file_handler.clear_thumbnail_cache()
+        clear_shot_manager_cache()
+        shot_manager = get_shot_manager(path_str)
+        shot_manager.get_shots()
+
+        # Update last scanned timestamp
         folder_mtime = project_path.stat().st_mtime
-        if (not last_scanned or
-                folder_mtime > datetime.fromisoformat(last_scanned).timestamp()):
-            file_handler = FileHandler(path_str)
-            file_handler.clear_thumbnail_cache()
-            clear_shot_manager_cache()
-            shot_manager = get_shot_manager(path_str)
-            shot_manager.get_shots()
-            project_manager.projects.setdefault('last_scanned', {})[path_str] = (
-                datetime.fromtimestamp(folder_mtime).isoformat()
-            )
+        project_manager.projects.setdefault('last_scanned', {})[path_str] = (
+            datetime.fromtimestamp(folder_mtime).isoformat()
+        )
         project_manager.save_projects()
 
         return jsonify({"success": True, "data": project_info})
@@ -150,6 +150,11 @@ def create_project():
         project_manager.projects['current_project'] = path_str
         project_manager.projects['recent_projects'] = [path_str]
         project_manager.save_projects()
+
+        # Clear thumbnail cache when creating new project to prevent showing old thumbnails
+        file_handler = FileHandler(path_str)
+        file_handler.clear_thumbnail_cache()
+        clear_shot_manager_cache()
 
         # Optional: sanity check (useful in dev)
         assert project_manager.get_current_project() is not None
