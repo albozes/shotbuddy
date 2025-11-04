@@ -340,9 +340,9 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'}
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     shots.push(result.data);
                     captureScroll(`shot-row-${result.data.name}`);
@@ -350,7 +350,11 @@
                     restoreScroll();
                     showNotification(`Shot ${result.data.name} created`);
                 } else {
-                    showNotification(result.error || 'Failed to create shot', 'error');
+                    if (result.error && result.error.includes('shot number would exceed 999')) {
+                        showShotLimitModal();
+                    } else {
+                        showNotification(result.error || 'Failed to create shot', 'error');
+                    }
                 }
             } catch (error) {
                 console.error('Error creating shot:', error);
@@ -376,7 +380,11 @@
                     restoreScroll();
                     showNotification(`Shot ${result.data.name} created`);
                 } else {
-                    showNotification(result.error || 'Failed to create shot', 'error');
+                    if (result.error && result.error.includes('shot number would exceed 999')) {
+                        showShotLimitModal();
+                    } else {
+                        showNotification(result.error || 'Failed to create shot', 'error');
+                    }
                 }
             } catch (error) {
                 console.error('Error creating shot:', error);
@@ -490,7 +498,7 @@
             if (files.length === 0) return;
 
             const afterShot = event.currentTarget.getAttribute('data-after-shot');
-            
+
             try {
                 // Create new shot
                 const response = await fetch('/api/shots/create-between', {
@@ -500,17 +508,17 @@
                         after_shot: afterShot || null
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     const newShot = result.data;
                     showNotification(`Shot ${newShot.name} created`);
-                    
+
                     // Upload the file to the new shot
                     const file = files[0];
                     const fileType = getFileType(file.name);
-                    
+
                     if (fileType) {
                         await uploadFile(file, newShot.name, fileType);
                     } else {
@@ -518,7 +526,11 @@
                         loadShots(`shot-row-${newShot.name}`); // Still refresh to show the new shot
                     }
                 } else {
-                    showNotification(result.error || 'Failed to create shot', 'error');
+                    if (result.error && result.error.includes('shot number would exceed 999')) {
+                        showShotLimitModal();
+                    } else {
+                        showNotification(result.error || 'Failed to create shot', 'error');
+                    }
                 }
             } catch (error) {
                 console.error('Error creating shot:', error);
@@ -791,4 +803,12 @@ async function openShotsFolder() {
         console.error('Open folder failed:', e);
         showNotification('Failed to open folder', 'error');
     }
+}
+
+function showShotLimitModal() {
+    document.getElementById('shot-limit-modal').style.display = 'flex';
+}
+
+function closeShotLimitModal() {
+    document.getElementById('shot-limit-modal').style.display = 'none';
 }

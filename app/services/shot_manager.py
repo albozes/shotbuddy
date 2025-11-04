@@ -130,7 +130,10 @@ class ShotManager:
                     except ValueError:
                         continue
 
-        return (max(existing_shots) + 10) if existing_shots else 10
+        next_num = (max(existing_shots) + 10) if existing_shots else 10
+        if next_num > 999:
+            raise ValueError("Cannot create more shots: shot number would exceed 999. Consider splitting your project into individual sequences.")
+        return next_num
 
     def get_shots(self):
         """Get all shots in the project."""

@@ -519,6 +519,16 @@
             width: 800px;
         }
 
+        #shot-limit-modal .modal-content {
+            max-width: 450px;
+            margin: 0 20px;
+            text-align: left;
+        }
+
+        #shot-limit-modal h3 {
+            text-align: center;
+        }
+
         #prompt-modal-title {
             margin-bottom: 10px;
             text-align: left;
