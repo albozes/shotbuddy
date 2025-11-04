@@ -292,11 +292,11 @@ class ShotManager:
             }
 
         # Thumbnails
-        image_thumb = self.get_thumbnail_path(Path(latest_image), shot_name) if latest_image else None
-        video_thumb = self.get_video_thumbnail_path(Path(latest_video), shot_name) if latest_video else None
+        image_thumb = self.get_thumbnail_path(latest_image, shot_name) if latest_image else None
+        video_thumb = self.get_video_thumbnail_path(latest_video, shot_name) if latest_video else None
 
         for part_name, info in lipsync.items():
-            info['thumbnail'] = self.get_video_thumbnail_path(Path(info['file']), f"{shot_name}_{part_name}") if info['file'] else None
+            info['thumbnail'] = self.get_video_thumbnail_path(info['file'], f"{shot_name}_{part_name}") if info['file'] else None
 
         logger.debug("%s -> Image thumbnail: %s", shot_name, image_thumb)
         logger.debug("%s -> Video thumbnail: %s", shot_name, video_thumb)
