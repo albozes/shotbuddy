@@ -293,12 +293,10 @@ class ShotManager:
 
         # Thumbnails
         image_thumb = self.get_thumbnail_path(Path(latest_image), shot_name) if latest_image else None
+        video_thumb = self.get_video_thumbnail_path(Path(latest_video), shot_name) if latest_video else None
 
-        # Video thumbnails mirror the image thumbnail.  No separate thumbnail is
-        # generated for videos. Same for lipsync clips.
-        video_thumb = image_thumb
-        for part in lipsync.values():
-            part['thumbnail'] = image_thumb
+        for part_name, info in lipsync.items():
+            info['thumbnail'] = self.get_video_thumbnail_path(Path(info['file']), f"{shot_name}_{part_name}") if info['file'] else None
 
         logger.debug("%s -> Image thumbnail: %s", shot_name, image_thumb)
         logger.debug("%s -> Video thumbnail: %s", shot_name, video_thumb)
@@ -455,6 +453,44 @@ class ShotManager:
                     img.save(str(thumb_path), "JPEG", quality=85)
             except Exception as e:
                 logger.warning("Error creating thumbnail: %s", e)
+                return None
+
+        return f"/static/thumbnails/{thumb_filename}"
+
+    def get_video_thumbnail_path(self, video_path, shot_name):
+        """Return (and create if necessary) the thumbnail for a video."""
+        if not video_path:
+            return None
+
+        import subprocess
+        import shutil as _shutil
+
+        video_path = Path(video_path)
+        thumb_filename = f"{shot_name}_{video_path.stem}_vthumb.jpg"
+        thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+
+        if not thumb_path.exists():
+            ffmpeg = _shutil.which("ffmpeg")
+            if not ffmpeg:
+                logger.warning("ffmpeg not found; skipping video thumbnail for %s", video_path)
+                return None
+            try:
+                THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                tmp_path = thumb_path.with_suffix(".tmp.jpg")
+                cmd = [ffmpeg, "-y", "-i", str(video_path), "-frames:v", "1", str(tmp_path)]
+                subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                with Image.open(tmp_path) as img:
+                    img.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+                    if img.mode in ("RGBA", "LA", "P"):
+                        background = Image.new("RGB", img.size, (64, 64, 64))
+                        if img.mode == "P":
+                            img = img.convert("RGBA")
+                        background.paste(img, mask=img.split()[-1] if "A" in img.mode else None)
+                        img = background
+                    img.save(str(thumb_path), "JPEG", quality=85)
+                tmp_path.unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning("Error creating video thumbnail: %s", e)
                 return None
 
         return f"/static/thumbnails/{thumb_filename}"

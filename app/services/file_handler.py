@@ -73,6 +73,10 @@ class FileHandler:
                 existing_file.unlink()
 
             shutil.copy2(str(wip_path), str(final_path))
+<<<<<<< HEAD
+=======
+            thumb_key = shot_name
+>>>>>>> 568af01cd0b4f871e5d42b4aa463c9986123a4d6
 
             # Attempt to extract embedded prompt metadata from PNG files
             if file_ext == '.png':
@@ -106,10 +110,13 @@ class FileHandler:
                     existing_file.unlink()
 
             shutil.copy2(str(wip_path), str(final_path))
+            thumb_key = base
 
         thumbnail_path = None
         if file_type == 'image':
             thumbnail_path = self.create_thumbnail(str(final_path), shot_name)
+        else:
+            thumbnail_path = self.create_video_thumbnail(str(final_path), thumb_key)
 
         return {
             'wip_path': str(wip_path).replace('\\', '/'),
@@ -168,4 +175,41 @@ class FileHandler:
 
         except Exception as e:
             logger.warning("Error creating thumbnail: %s", e)
+            return None
+
+    def create_video_thumbnail(self, video_path, shot_name, size=THUMBNAIL_SIZE):
+        """Extract the first frame of ``video_path`` and save it as a thumbnail."""
+        try:
+            import subprocess
+            import shutil as _shutil
+
+            video_path = Path(video_path)
+            thumb_filename = f"{shot_name}_{video_path.stem}_vthumb.jpg"
+            thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+
+            ffmpeg = _shutil.which("ffmpeg")
+            if not ffmpeg:
+                logger.warning("ffmpeg not found; skipping video thumbnail for %s", video_path)
+                return None
+
+            THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            tmp_path = thumb_path.with_suffix(".tmp.jpg")
+
+            cmd = [ffmpeg, "-y", "-i", str(video_path), "-frames:v", "1", str(tmp_path)]
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            with Image.open(tmp_path) as img:
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+                if img.mode in ("RGBA", "LA", "P"):
+                    background = Image.new("RGB", img.size, (64, 64, 64))
+                    if img.mode == "P":
+                        img = img.convert("RGBA")
+                    background.paste(img, mask=img.split()[-1] if "A" in img.mode else None)
+                    img = background
+                img.save(str(thumb_path), "JPEG", quality=85)
+
+            tmp_path.unlink(missing_ok=True)
+            return str(thumb_path)
+        except Exception as e:
+            logger.warning("Error creating video thumbnail: %s", e)
             return None

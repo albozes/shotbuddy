@@ -13,7 +13,8 @@ class ProjectManager:
         self.projects_file = Path(PROJECTS_FILE).resolve()
         self.projects = {
             'current_project': None,
-            'recent_projects': []
+            'recent_projects': [],
+            'last_scanned': {}
         }
         self.ensure_config_dir()
         self.load_projects()
@@ -32,6 +33,10 @@ class ProjectManager:
                     self.projects['recent_projects'] = [
                         str(Path(p).resolve()) for p in self.projects.get('recent_projects', [])
                     ]
+                    loaded_scanned = self.projects.get('last_scanned', {})
+                    self.projects['last_scanned'] = {
+                        str(Path(p).resolve()): ts for p, ts in loaded_scanned.items()
+                    }
             except Exception as e:
                 logger.warning("Failed to load projects.json: %s", e)
         logger.info("Loaded current project: %s", self.projects.get('current_project'))
