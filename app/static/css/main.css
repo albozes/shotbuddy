@@ -166,7 +166,7 @@
         .grid-header {
             background: #2a2a2a;
             display: grid;
-            grid-template-columns: 110px 160px 160px 1fr; /* Adjust widths here */
+            grid-template-columns: 110px 160px 160px 1fr 50px; /* Added 50px for collapse button */
             align-items: start; /* Align content to top/left */
             border-bottom: 1px solid #404040;
         }
@@ -182,20 +182,103 @@
 
         .shot-row {
             display: grid;
-            grid-template-columns: 110px 160px 160px 1fr; /* Adjust widths here */
+            grid-template-columns: 110px 160px 160px 1fr 50px; /* Added 50px for collapse button */
             align-items: start; /* Align content to top/left */
             border-bottom: 1px solid #404040;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
             padding-bottom: 10px; /* Add space below to mirror top */
+            min-height: 100px;
+            cursor: default;
+        }
+
+        .shot-row.collapsed {
+            min-height: 24px;
+            max-height: 24px;
+            overflow: visible;
+            cursor: pointer;
+            opacity: 0.3;
+            padding-bottom: 0;
+            margin: -6px 0 10px 0;
+        }
+
+        .shot-row.collapsed:hover {
+            opacity: 0.6;
+            background: #333;
+        }
+
+        .shot-row.collapsed .shot-name {
+            display: flex;
+            align-items: center;
+            padding: 4px 16px;
+            font-size: 11px;
+            color: #808080;
+            min-height: 24px;
+            overflow: visible;
+        }
+
+        .shot-row.collapsed .drop-zone,
+        .shot-row.collapsed .notes-cell {
+            visibility: hidden;
+            min-height: 24px;
+            max-height: 24px;
+            overflow: hidden;
+        }
+
+        .shot-row.collapsed .collapse-cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 24px;
+            padding: 4px 5px;
         }
 
         .shot-row:hover {
             background: #2a2a2a;
         }
 
+        .shot-row.collapsed:hover {
+            background: #333;
+        }
+
         .shot-row.archived {
             opacity: 0.5;
             background: #2a2a2a;
+        }
+
+        .collapse-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 5px;
+        }
+
+        .collapse-button {
+            background: transparent;
+            border: none;
+            color: #808080;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+
+        .collapse-button:hover {
+            background: #3a3a3a;
+            color: #e5e5e5;
+        }
+
+        .shot-row.collapsed .collapse-button {
+            padding: 4px;
+        }
+
+        .collapse-arrow {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .shot-row.collapsed .collapse-arrow {
+            transform: rotate(-90deg);
         }
 
         .shot-name {
@@ -425,7 +508,7 @@
 
         /* Drop Between Rows */
         .drop-between-rows {
-            height: 20px;
+            height: 3px;
             margin: 0 20px;
             border-radius: 4px;
             transition: all 0.2s;
@@ -435,10 +518,13 @@
             color: #808080;
             font-size: 12px;
             opacity: 0;
+            overflow: hidden;
+            cursor: pointer;
         }
 
         .drop-between-rows:hover {
             opacity: 1;
+            height: 24px;
             background: #2a2a2a;
         }
 
