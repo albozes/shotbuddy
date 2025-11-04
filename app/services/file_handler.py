@@ -73,7 +73,10 @@ class FileHandler:
                 existing_file.unlink()
 
             shutil.copy2(str(wip_path), str(final_path))
+<<<<<<< HEAD
+=======
             thumb_key = shot_name
+>>>>>>> 568af01cd0b4f871e5d42b4aa463c9986123a4d6
 
             # Attempt to extract embedded prompt metadata from PNG files
             if file_ext == '.png':
