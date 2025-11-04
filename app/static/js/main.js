@@ -240,20 +240,33 @@
             const row = document.createElement('div');
             row.className = 'shot-row';
             row.id = `shot-row-${shot.name}`;
-            
+
+            // Check if shot is collapsed
+            const isCollapsed = currentSettings.collapsed_shots && currentSettings.collapsed_shots.includes(shot.name);
+            if (isCollapsed) {
+                row.classList.add('collapsed');
+            }
+
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
                 ${createDropZone(shot, 'image')}
                 ${createDropZone(shot, 'video')}
                 ${'' /* createLipsyncZone(shot) */}
                 <div class="notes-cell">
-                    <textarea class="notes-input" 
-                              placeholder="Add notes..." 
+                    <textarea class="notes-input"
+                              placeholder="Add notes..."
                               onchange="saveNotes('${shot.name}', this.value)"
                               onblur="saveNotes('${shot.name}', this.value)">${shot.notes || ''}</textarea>
                 </div>
+                <div class="collapse-cell">
+                    <button class="collapse-button"
+                            onclick="toggleShotCollapse('${shot.name}')"
+                            title="Hide">
+                        <span class="collapse-arrow">▼</span>
+                    </button>
+                </div>
             `;
-            
+
             return row;
         }
 
@@ -883,3 +896,53 @@ async function saveSettings() {
 
 // Load settings on page load
 loadSettings();
+
+// Toggle shot collapse/expand
+async function toggleShotCollapse(shotName) {
+    const row = document.getElementById(`shot-row-${shotName}`);
+    if (!row) return;
+
+    const isCurrentlyCollapsed = row.classList.contains('collapsed');
+
+    // Toggle the collapsed class
+    row.classList.toggle('collapsed');
+
+    // Update the collapsed_shots array
+    if (!currentSettings.collapsed_shots) {
+        currentSettings.collapsed_shots = [];
+    }
+
+    if (isCurrentlyCollapsed) {
+        // Remove from collapsed list
+        currentSettings.collapsed_shots = currentSettings.collapsed_shots.filter(name => name !== shotName);
+    } else {
+        // Add to collapsed list
+        if (!currentSettings.collapsed_shots.includes(shotName)) {
+            currentSettings.collapsed_shots.push(shotName);
+        }
+    }
+
+    // Save to backend
+    try {
+        const response = await fetch('/api/settings/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ collapsed_shots: currentSettings.collapsed_shots })
+        });
+        const result = await response.json();
+        if (result.success) {
+            currentSettings = result.settings;
+        }
+    } catch (e) {
+        console.error('Failed to save collapsed state:', e);
+    }
+}
+
+// Allow clicking on collapsed row to expand it
+document.addEventListener('click', function(e) {
+    const collapsedRow = e.target.closest('.shot-row.collapsed');
+    if (collapsedRow && !e.target.closest('.collapse-button')) {
+        const shotName = collapsedRow.id.replace('shot-row-', '');
+        toggleShotCollapse(shotName);
+    }
+});
