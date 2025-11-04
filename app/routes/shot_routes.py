@@ -223,14 +223,65 @@ def reveal_file():
     try:
         data = request.get_json()
         rel_path = data.get("path")
+        shot_name = data.get("shot_name")
+        asset_type = data.get("asset_type")
+
         project_manager = current_app.config['PROJECT_MANAGER']
         project = project_manager.get_current_project()
         if not project:
             return jsonify({"success": False, "error": "No current project"}), 400
 
+        # Get user settings
+        settings = project_manager.get_settings()
+        thumbnail_behavior = settings.get('thumbnail_click_behavior', 'latest_folder')
+
+        project_path = Path(project["path"])
+
+        # Determine which folder to open based on settings
+        if thumbnail_behavior == 'latest_folder' and asset_type:
+            # Open the latest folder based on asset type
+            if asset_type == 'image':
+                folder_path = project_path / 'shots' / 'latest_images'
+            elif asset_type == 'video':
+                folder_path = project_path / 'shots' / 'latest_videos'
+            else:
+                # Fallback to file location if asset type is unknown
+                folder_path = None
+
+            if folder_path and folder_path.exists():
+                if platform.system() == "Windows":
+                    subprocess.Popen(['explorer', str(folder_path)])
+                elif platform.system() == "Darwin":
+                    subprocess.Popen(['open', str(folder_path)])
+                else:
+                    subprocess.Popen(['xdg-open', str(folder_path)])
+                return jsonify({"success": True})
+
+        elif thumbnail_behavior == 'version_folder' and shot_name and asset_type:
+            # Open the shot's version folder - asset type specific
+            # Images: shots/wip/{ShotName}/images/
+            # Videos: shots/wip/{ShotName}/videos/
+            if asset_type == 'image':
+                folder_path = project_path / 'shots' / 'wip' / shot_name / 'images'
+            elif asset_type == 'video':
+                folder_path = project_path / 'shots' / 'wip' / shot_name / 'videos'
+            else:
+                # Fallback to shot folder if asset type is unknown
+                folder_path = project_path / 'shots' / 'wip' / shot_name
+
+            if folder_path.exists():
+                if platform.system() == "Windows":
+                    subprocess.Popen(['explorer', str(folder_path)])
+                elif platform.system() == "Darwin":
+                    subprocess.Popen(['open', str(folder_path)])
+                else:
+                    subprocess.Popen(['xdg-open', str(folder_path)])
+                return jsonify({"success": True})
+
+        # Fallback to original behavior: reveal the specific file
         file_path = Path(rel_path)
         if not file_path.is_absolute():
-            file_path = (Path(project["path"]) / file_path).resolve()
+            file_path = (project_path / file_path).resolve()
         else:
             file_path = file_path.resolve()
 

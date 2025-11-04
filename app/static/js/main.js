@@ -276,7 +276,7 @@
                         <div class="file-preview">
                             <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}"
                                 style="${thumbnailStyle}"
-                                onclick="revealFile('${file.file}')"></div>
+                                onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
                             <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
                             <button class="prompt-button"
@@ -622,12 +622,16 @@ async function renameShot(oldName, newName) {
     }
 }
 
-async function revealFile(relPath) {
+async function revealFile(relPath, shotName, assetType) {
             try {
                 const response = await fetch('/api/shots/reveal', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ path: relPath })
+                    body: JSON.stringify({
+                        path: relPath,
+                        shot_name: shotName,
+                        asset_type: assetType
+                    })
                 });
                 const result = await response.json();
                 if (!result.success) {
@@ -816,3 +820,66 @@ function showShotLimitModal() {
 function closeShotLimitModal() {
     document.getElementById('shot-limit-modal').style.display = 'none';
 }
+
+// Settings Modal Functions
+let currentSettings = {
+    thumbnail_click_behavior: 'latest_folder'
+};
+
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings/');
+        const result = await response.json();
+        if (result.success && result.settings) {
+            currentSettings = result.settings;
+        }
+    } catch (e) {
+        console.error('Failed to load settings:', e);
+    }
+}
+
+async function openSettingsModal() {
+    // Load current settings first
+    await loadSettings();
+
+    // Set the dropdown value
+    const dropdown = document.getElementById('thumbnail-click-behavior');
+    dropdown.value = currentSettings.thumbnail_click_behavior || 'latest_folder';
+
+    // Show the modal
+    document.getElementById('settings-modal').style.display = 'flex';
+}
+
+function closeSettingsModal() {
+    document.getElementById('settings-modal').style.display = 'none';
+}
+
+async function saveSettings() {
+    const dropdown = document.getElementById('thumbnail-click-behavior');
+    const newSettings = {
+        thumbnail_click_behavior: dropdown.value
+    };
+
+    try {
+        const response = await fetch('/api/settings/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newSettings)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            currentSettings = result.settings;
+            showNotification('Settings saved successfully', 'success');
+            closeSettingsModal();
+        } else {
+            showNotification(result.error || 'Failed to save settings', 'error');
+        }
+    } catch (e) {
+        console.error('Failed to save settings:', e);
+        showNotification('Failed to save settings', 'error');
+    }
+}
+
+// Load settings on page load
+loadSettings();
