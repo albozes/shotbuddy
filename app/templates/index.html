@@ -22,6 +22,7 @@
             <button class="dark-button" onclick="openCreateProjectModal()">
                 Create New Project at Path
             </button>
+            <button class="dark-button" onclick="openSettingsModal()" title="Settings">Settings</button>
         </div>
     </div>
 
@@ -113,6 +114,26 @@
             </p>
             <div class="modal-buttons">
                 <button class="dark-button" onclick="closeShotLimitModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 20px;">Settings</h3>
+            <div style="margin-bottom: 20px;">
+                <label for="thumbnail-click-behavior" style="display: block; margin-bottom: 8px; color: #e0e0e0;">
+                    Clicking the thumbnail opens:
+                </label>
+                <select id="thumbnail-click-behavior" class="settings-dropdown">
+                    <option value="latest_folder">the Latest folder (all shots)</option>
+                    <option value="version_folder">the Shot's version folder (images or videos)</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="green-button" onclick="saveSettings()">Save</button>
+                <button class="dark-button" onclick="closeSettingsModal()">Cancel</button>
             </div>
         </div>
     </div>
