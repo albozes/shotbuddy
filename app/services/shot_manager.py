@@ -436,7 +436,8 @@ class ShotManager:
             return None
 
         image_path = Path(image_path)
-        thumb_filename = f"{shot_name}_{image_path.stem}_thumb.jpg"
+        project_name = self.project_path.name
+        thumb_filename = f"{project_name}_{shot_name}_{image_path.stem}_thumb.jpg"
         thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
 
         if not thumb_path.exists():
@@ -466,7 +467,8 @@ class ShotManager:
         import shutil as _shutil
 
         video_path = Path(video_path)
-        thumb_filename = f"{shot_name}_{video_path.stem}_vthumb.jpg"
+        project_name = self.project_path.name
+        thumb_filename = f"{project_name}_{shot_name}_{video_path.stem}_vthumb.jpg"
         thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
 
         if not thumb_path.exists():
