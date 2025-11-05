@@ -236,49 +236,67 @@ def reveal_file():
         thumbnail_behavior = settings.get('thumbnail_click_behavior', 'latest_folder')
 
         project_path = Path(project["path"])
+        file_to_select = None
 
-        # Determine which folder to open based on settings
-        if thumbnail_behavior == 'latest_folder' and asset_type:
-            # Open the latest folder based on asset type
+        # Determine which file to select based on settings
+        if thumbnail_behavior == 'latest_folder' and shot_name and asset_type:
+            # Select the shot file in the latest folder
             if asset_type == 'image':
                 folder_path = project_path / 'shots' / 'latest_images'
             elif asset_type == 'video':
                 folder_path = project_path / 'shots' / 'latest_videos'
             else:
-                # Fallback to file location if asset type is unknown
                 folder_path = None
 
             if folder_path and folder_path.exists():
-                if platform.system() == "Windows":
-                    subprocess.Popen(['explorer', str(folder_path)])
-                elif platform.system() == "Darwin":
-                    subprocess.Popen(['open', str(folder_path)])
-                else:
-                    subprocess.Popen(['xdg-open', str(folder_path)])
-                return jsonify({"success": True})
+                # Find the file with the shot name in this folder
+                from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
+                extensions = ALLOWED_IMAGE_EXTENSIONS if asset_type == 'image' else ALLOWED_VIDEO_EXTENSIONS
+
+                for ext in extensions:
+                    candidate = folder_path / f'{shot_name}{ext}'
+                    if candidate.exists():
+                        file_to_select = candidate
+                        break
 
         elif thumbnail_behavior == 'version_folder' and shot_name and asset_type:
-            # Open the shot's version folder - asset type specific
-            # Images: shots/wip/{ShotName}/images/
-            # Videos: shots/wip/{ShotName}/videos/
-            if asset_type == 'image':
-                folder_path = project_path / 'shots' / 'wip' / shot_name / 'images'
-            elif asset_type == 'video':
-                folder_path = project_path / 'shots' / 'wip' / shot_name / 'videos'
-            else:
-                # Fallback to shot folder if asset type is unknown
-                folder_path = project_path / 'shots' / 'wip' / shot_name
+            # Select the latest versioned file in the shot's folder
+            shot_manager = get_shot_manager(project["path"])
+            shot_info = shot_manager.get_shot_info(shot_name)
 
-            if folder_path.exists():
-                if platform.system() == "Windows":
-                    subprocess.Popen(['explorer', str(folder_path)])
-                elif platform.system() == "Darwin":
-                    subprocess.Popen(['open', str(folder_path)])
+            # Get the version for this asset type
+            version = shot_info.get(asset_type, {}).get('version', 0)
+
+            if version > 0:
+                # Build the versioned file path
+                if asset_type == 'image':
+                    folder_path = project_path / 'shots' / 'wip' / shot_name / 'images'
+                elif asset_type == 'video':
+                    folder_path = project_path / 'shots' / 'wip' / shot_name / 'videos'
                 else:
-                    subprocess.Popen(['xdg-open', str(folder_path)])
-                return jsonify({"success": True})
+                    folder_path = None
 
-        # Fallback to original behavior: reveal the specific file
+                if folder_path and folder_path.exists():
+                    from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
+                    extensions = ALLOWED_IMAGE_EXTENSIONS if asset_type == 'image' else ALLOWED_VIDEO_EXTENSIONS
+
+                    for ext in extensions:
+                        candidate = folder_path / f'{shot_name}_v{version:03d}{ext}'
+                        if candidate.exists():
+                            file_to_select = candidate
+                            break
+
+        # If we found a file to select, reveal it
+        if file_to_select:
+            if platform.system() == "Windows":
+                subprocess.Popen(['explorer', '/select,', str(file_to_select)])
+            elif platform.system() == "Darwin":
+                subprocess.Popen(['open', '-R', str(file_to_select)])
+            else:
+                subprocess.Popen(['xdg-open', str(file_to_select.parent)])
+            return jsonify({"success": True})
+
+        # Fallback to original behavior: reveal the specific file from rel_path
         file_path = Path(rel_path)
         if not file_path.is_absolute():
             file_path = (project_path / file_path).resolve()
