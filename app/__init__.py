@@ -18,10 +18,12 @@ def create_app():
     from app.routes.project_routes import project_bp
     from app.routes.shot_routes import shot_bp
     from app.routes.settings_routes import settings_bp
+    from app.routes.reference_routes import reference_bp
 
     # Register blueprints with appropriate prefixes
     app.register_blueprint(project_bp, url_prefix='/')
     app.register_blueprint(shot_bp, url_prefix="/api/shots")
     app.register_blueprint(settings_bp, url_prefix="/api/settings")
+    app.register_blueprint(reference_bp, url_prefix="/api/reference")
 
     return app
