@@ -149,10 +149,22 @@
         }
 
         /* Main Container */
+        .main-content-wrapper {
+            display: flex;
+            position: relative;
+            width: 100%;
+        }
+
         .container {
+            flex: 1;
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            transition: margin-right 0.3s ease;
+        }
+
+        .container.sidebar-open {
+            margin-right: 30%;
         }
 
         /* Shot Grid */
@@ -790,4 +802,185 @@
             color: #808080;
             border-top: 1px solid #333;
             background: #111;
+        }
+
+        /* Right Sidebar */
+        .sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            width: 30%;
+            background: #252525;
+            border-left: 1px solid #404040;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 100;
+            overflow-y: auto;
+            padding-top: 70px;
+        }
+
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-content {
+            padding: 30px 20px;
+        }
+
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #e5e5e5;
+            margin-bottom: 20px;
+        }
+
+        /* Sidebar Toggle Button */
+        .sidebar-toggle {
+            position: fixed;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #3a3a3a;
+            border: 1px solid #404040;
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+            padding: 14px 10px;
+            cursor: pointer;
+            z-index: 101;
+            transition: all 0.3s ease;
+            color: #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar-toggle:hover {
+            background: #505050;
+            box-shadow: -2px 0 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar-toggle.open {
+            right: 30%;
+        }
+
+        .sidebar-toggle svg {
+            transition: transform 0.3s ease;
+            width: 20px;
+            height: 20px;
+        }
+
+        .sidebar-toggle.open svg {
+            transform: rotate(180deg);
+        }
+
+        /* Reference Images Grid */
+        .ref-images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+            width: 100%;
+        }
+
+        .ref-image-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ref-drop-zone {
+            aspect-ratio: 4 / 3;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .ref-drop-zone.empty {
+            border: 2px dashed #505050;
+            background: #2a2a2a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .ref-drop-zone.empty:hover {
+            border-color: #00c851;
+            background: #1f2f22;
+        }
+
+        .ref-drop-zone.drag-over {
+            background: var(--new-shot-drop-bg);
+            border: var(--new-shot-drop-border);
+            color: var(--new-shot-drop-color);
+            transform: scale(1.02);
+        }
+
+        .ref-drop-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ref-drop-text {
+            font-size: 14px;
+            color: #b5b5b5;
+            font-weight: 500;
+        }
+
+        .ref-image-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #404040;
+            border: 1px solid #505050;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .ref-image-preview:hover {
+            opacity: 0.8;
+        }
+
+        .ref-image-filename {
+            font-size: 12px;
+            color: #e5e5e5;
+            text-align: center;
+            word-break: break-word;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .ref-image-filename:hover {
+            background: #3a3a3a;
+        }
+
+        /* Restart Button */
+        .restart-button {
+            width: 100%;
+            padding: 12px 20px;
+            background: #ff6b6b;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+        }
+
+        .restart-button:hover {
+            background: #ff5252;
+        }
+
+        .restart-button:active {
+            background: #ff3838;
         }

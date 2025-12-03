@@ -114,7 +114,7 @@
             try {
                 const response = await fetch('/api/project/current');
                 const result = await response.json();
-                
+
                 if (result.success && result.data) {
                     currentProject = result.data;
                     showMainInterface();
@@ -131,6 +131,9 @@
         function showSetupScreen() {
             document.getElementById('setup-screen').style.display = 'flex';
             document.getElementById('main-interface').style.display = 'none';
+            // Show the "no project" card, hide the loading card
+            document.getElementById('setup-card-loading').style.display = 'none';
+            document.getElementById('setup-card-no-project').style.display = 'block';
         }
 
         function showMainInterface() {
@@ -147,17 +150,18 @@
             captureScroll(rowId);
             document.getElementById('loading').style.display = 'block';
             document.getElementById('shot-grid').style.display = 'none';
-            
+
             try {
                 const response = await fetch('/api/shots');
                 const result = await response.json();
-                
+
                 if (result.success) {
                     shots = result.data;
                     renderShots();
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('shot-grid').style.display = 'block';
                     restoreScroll();
+                    loadReferenceImages();
                 } else {
                     showNotification(result.error || 'Failed to load shots', 'error');
                 }
@@ -946,3 +950,278 @@ document.addEventListener('click', function(e) {
         toggleShotCollapse(shotName);
     }
 });
+
+// Sidebar toggle functionality
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    const container = document.querySelector('.container');
+
+    sidebar.classList.toggle('open');
+    toggleBtn.classList.toggle('open');
+    container.classList.toggle('sidebar-open');
+}
+
+// Reference Images Functionality
+let referenceImages = [];
+
+async function loadReferenceImages() {
+    try {
+        const response = await fetch('/api/reference/');
+        const result = await response.json();
+
+        if (result.success) {
+            referenceImages = result.data;
+            renderReferenceImages();
+        } else {
+            console.error('Failed to load reference images:', result.error);
+        }
+    } catch (error) {
+        console.error('Error loading reference images:', error);
+    }
+}
+
+function renderReferenceImages() {
+    const grid = document.getElementById('ref-images-grid');
+    grid.innerHTML = '';
+
+    // Render existing images
+    referenceImages.forEach(img => {
+        const item = createReferenceImageElement(img);
+        grid.appendChild(item);
+    });
+
+    // Add the empty drop zone at the end
+    const emptyZone = document.createElement('div');
+    emptyZone.className = 'ref-image-item ref-drop-zone empty';
+    emptyZone.ondragover = handleRefDragOver;
+    emptyZone.ondrop = handleRefDrop;
+    emptyZone.ondragleave = handleRefDragLeave;
+    emptyZone.onclick = openRefImageDialog;
+    emptyZone.innerHTML = `
+        <div class="ref-drop-placeholder">
+            <div class="ref-drop-text">+ Add Image</div>
+        </div>
+    `;
+    grid.appendChild(emptyZone);
+}
+
+function createReferenceImageElement(img) {
+    const item = document.createElement('div');
+    item.className = 'ref-image-item';
+
+    const truncatedName = img.filename.length > 50
+        ? img.filename.substring(0, 50) + '...'
+        : img.filename;
+
+    // Use thumbnail URL if available, otherwise fall back to full image
+    const imageUrl = img.thumbnail
+        ? `${img.thumbnail}?v=${Date.now()}`
+        : `/api/reference/image/${encodeURIComponent(img.filename)}?v=${Date.now()}`;
+
+    // Escape single quotes in filename for onclick attribute
+    const escapedFilename = img.filename.replace(/'/g, "\\'");
+
+    item.innerHTML = `
+        <div class="ref-drop-zone">
+            <img src="${imageUrl}"
+                 class="ref-image-preview"
+                 alt="${img.filename}"
+                 title="${img.filename}"
+                 onclick="revealRefImage('${escapedFilename}')">
+        </div>
+        <div class="ref-image-filename"
+             onclick="editRefImageName('${escapedFilename}')"
+             title="${img.filename}">
+            ${truncatedName}
+        </div>
+    `;
+
+    return item;
+}
+
+function handleRefDragOver(event) {
+    event.preventDefault();
+    event.currentTarget.classList.add('drag-over');
+}
+
+function handleRefDragLeave(event) {
+    event.currentTarget.classList.remove('drag-over');
+}
+
+async function handleRefDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+
+    const files = event.dataTransfer.files;
+    if (files.length === 0) {
+        showNotification('No files dropped', 'error');
+        return;
+    }
+
+    const file = files[0];
+    const ext = file.name.toLowerCase().split('.').pop();
+
+    if (!['jpg', 'jpeg', 'png'].includes(ext)) {
+        showNotification('Only JPG and PNG images are allowed', 'error');
+        return;
+    }
+
+    await uploadReferenceImage(file);
+}
+
+function openRefImageDialog() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/jpg,image/png';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+        if (input.files && input.files[0]) {
+            uploadReferenceImage(input.files[0]);
+        }
+        input.remove();
+    });
+    document.body.appendChild(input);
+    input.click();
+}
+
+async function uploadReferenceImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        showNotification('Uploading reference image...');
+
+        const response = await fetch('/api/reference/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification(`${file.name} uploaded successfully!`);
+            loadReferenceImages();
+        } else {
+            showNotification(result.error || 'Upload failed', 'error');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showNotification('Upload failed', 'error');
+    }
+}
+
+function editRefImageName(currentName) {
+    // Get the extension
+    const lastDotIndex = currentName.lastIndexOf('.');
+    const extension = lastDotIndex !== -1 ? currentName.substring(lastDotIndex) : '';
+    const nameWithoutExt = lastDotIndex !== -1 ? currentName.substring(0, lastDotIndex) : currentName;
+
+    // Prompt for new name without extension
+    const newNameWithoutExt = prompt('Enter new filename', nameWithoutExt);
+    if (!newNameWithoutExt || newNameWithoutExt === nameWithoutExt) {
+        return;
+    }
+
+    // Add extension back
+    const newName = newNameWithoutExt + extension;
+    renameReferenceImage(currentName, newName);
+}
+
+async function renameReferenceImage(oldName, newName) {
+    try {
+        const response = await fetch('/api/reference/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_name: oldName, new_name: newName })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification(`Renamed to ${newName}`);
+            loadReferenceImages();
+        } else {
+            showNotification(result.error || 'Rename failed', 'error');
+        }
+    } catch (error) {
+        console.error('Rename failed:', error);
+        showNotification('Rename failed', 'error');
+    }
+}
+
+async function revealRefImage(filename) {
+    try {
+        const response = await fetch('/api/reference/reveal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: filename })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            showNotification(result.error || 'Failed to reveal file', 'error');
+        }
+    } catch (error) {
+        console.error('Reveal failed:', error);
+        showNotification('Failed to reveal file', 'error');
+    }
+}
+
+// Server Restart Functionality
+async function restartServer() {
+    try {
+        showNotification('Restarting server...', 'success');
+        closeSettingsModal();
+
+        // Call the restart endpoint
+        await fetch('/api/settings/restart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Wait longer for the server to fully shut down and start back up
+        await new Promise(resolve => setTimeout(resolve, 2500));
+
+        // Poll the server until it's back up
+        showNotification('Waiting for server to restart...', 'success');
+        await waitForServer();
+
+        // Refresh the page once the server is back
+        showNotification('Server restarted! Refreshing...', 'success');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        window.location.reload();
+    } catch (error) {
+        console.error('Restart failed:', error);
+        showNotification('Failed to restart server', 'error');
+    }
+}
+
+async function waitForServer(maxAttempts = 60) {
+    /**
+     * Poll the server until it responds, up to maxAttempts times.
+     * Each attempt waits 1 second between polls.
+     */
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const response = await fetch('/api/project/current', {
+                method: 'GET',
+                cache: 'no-cache'
+            });
+
+            // If we get any response, the server is back
+            if (response.ok || response.status === 400) {
+                return true;
+            }
+        } catch (error) {
+            // Server not ready yet, continue polling
+        }
+
+        // Wait 1 second before next attempt
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    throw new Error('Server did not restart in time');
+}
+
