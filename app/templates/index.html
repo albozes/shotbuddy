@@ -28,7 +28,11 @@
 
     <!-- Setup Screen -->
     <div id="setup-screen" class="setup-screen">
-        <div class="setup-card">
+        <div class="setup-card" id="setup-card-loading">
+            <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
+            <p style="margin-bottom: 30px; color: #b5b5b5;">Loading...</p>
+        </div>
+        <div class="setup-card" id="setup-card-no-project" style="display: none;">
             <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
             <p style="margin-bottom: 30px; color: #b5b5b5;">No project is currently open.</p>
             <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Use the menu above to create a new project or open an existing one.</p>
@@ -47,20 +51,51 @@
             </div>
         </div>
 
-        <div class="container">
-            <div class="loading" id="loading">Loading shots...</div>
-            <div class="shot-grid" id="shot-grid" style="display: none;">
-                <div class="grid-header">
-                    <div class="grid-header-cell">Shot Name</div>
-                    <div class="grid-header-cell">Image</div>
-                    <div class="grid-header-cell">Video</div>
-                    <!-- <div class="grid-header-cell">Lipsync</div> -->
-                    <div class="grid-header-cell">Notes</div>
-                    <div class="grid-header-cell collapse-header"></div>
+        <div class="main-content-wrapper">
+            <div class="container">
+                <div class="loading" id="loading">Loading shots...</div>
+                <div class="shot-grid" id="shot-grid" style="display: none;">
+                    <div class="grid-header">
+                        <div class="grid-header-cell">Shot Name</div>
+                        <div class="grid-header-cell">Image</div>
+                        <div class="grid-header-cell">Video</div>
+                        <!-- <div class="grid-header-cell">Lipsync</div> -->
+                        <div class="grid-header-cell">Notes</div>
+                        <div class="grid-header-cell collapse-header"></div>
+                    </div>
+                    <div id="shot-list"></div>
                 </div>
-                <div id="shot-list"></div>
             </div>
         </div>
+
+        <!-- Right Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-content">
+                <h2 class="sidebar-title">Reference Images</h2>
+
+                <!-- Reference Images Grid -->
+                <div class="ref-images-grid" id="ref-images-grid">
+                    <!-- Empty drop zone -->
+                    <div class="ref-image-item ref-drop-zone empty"
+                         ondragover="handleRefDragOver(event)"
+                         ondrop="handleRefDrop(event)"
+                         ondragleave="handleRefDragLeave(event)"
+                         onclick="openRefImageDialog()">
+                        <div class="ref-drop-placeholder">
+                            <div class="ref-drop-text">+ Add Image</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Toggle Button -->
+        <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Reference Images">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 4L8 10L14 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18 4V16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
     </div>
 
     <!-- Notification -->
@@ -132,6 +167,10 @@
                     <option value="version_folder">the latest version in the Shot's folder</option>
                 </select>
             </div>
+            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid #404040;">
+                <button class="restart-button" onclick="restartServer()">Restart Server</button>
+                <p style="margin-top: 8px; color: #808080; font-size: 12px;">Restarts Shotbuddy and refreshes the page</p>
+            </div>
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>
                 <button class="dark-button" onclick="closeSettingsModal()">Cancel</button>
@@ -140,7 +179,7 @@
     </div>
 
     <footer class='app-footer'>
-        Created by <a href="https://albertbozesan.com/">Albert Bozesan</a> with ChatGPT Codex
+        Created by <a href="https://albertbozesan.com/">Albert Bozesan</a>
     </footer>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
