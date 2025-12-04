@@ -69,38 +69,105 @@ class ShotManager:
         if new_dir.exists():
             raise ValueError(f"Shot {new_name} already exists")
 
+        logger.info(f"Renaming shot from {old_name} to {new_name}")
+
+        # Rename the shot folder
         old_dir.rename(new_dir)
 
-        for sub in ["images", "videos"]:
-            d = new_dir / sub
-            if d.exists():
-                for f in d.glob(f"{old_name}_v*.*"):
-                    f.rename(d / f.name.replace(old_name, new_name, 1))
+        # Rename all versioned asset files and prompt files in images subfolder
+        images_dir = new_dir / "images"
+        if images_dir.exists():
+            logger.info(f"Renaming files in {images_dir}")
+            # Rename versioned image files
+            for f in images_dir.glob(f"{old_name}_v*.*"):
+                if not f.name.endswith('_prompt.txt'):
+                    new_name_file = f.name.replace(old_name, new_name, 1)
+                    logger.info(f"  Renaming {f.name} -> {new_name_file}")
+                    f.rename(images_dir / new_name_file)
 
+            # Rename image prompt files
+            for f in images_dir.glob(f"{old_name}_v*_image_prompt.txt"):
+                new_name_file = f.name.replace(old_name, new_name, 1)
+                logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
+                f.rename(images_dir / new_name_file)
+
+        # Rename all versioned asset files and prompt files in videos subfolder
+        videos_dir = new_dir / "videos"
+        if videos_dir.exists():
+            logger.info(f"Renaming files in {videos_dir}")
+            # Rename versioned video files
+            for f in videos_dir.glob(f"{old_name}_v*.*"):
+                if not f.name.endswith('_prompt.txt'):
+                    new_name_file = f.name.replace(old_name, new_name, 1)
+                    logger.info(f"  Renaming {f.name} -> {new_name_file}")
+                    f.rename(videos_dir / new_name_file)
+
+            # Rename video prompt files
+            for f in videos_dir.glob(f"{old_name}_v*_video_prompt.txt"):
+                new_name_file = f.name.replace(old_name, new_name, 1)
+                logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
+                f.rename(videos_dir / new_name_file)
+
+        # Rename lipsync files
         lipsync_dir = new_dir / "lipsync"
         if lipsync_dir.exists():
+            logger.info(f"Renaming files in {lipsync_dir}")
             for part in ["driver", "target", "result"]:
+                # Rename non-versioned lipsync files
                 for ext in ALLOWED_VIDEO_EXTENSIONS:
                     src = lipsync_dir / f"{old_name}_{part}{ext}"
                     if src.exists():
-                        src.rename(lipsync_dir / f"{new_name}_{part}{ext}")
-                for f in lipsync_dir.glob(f"{old_name}_{part}_v*.*"):
-                    f.rename(lipsync_dir / f.name.replace(old_name, new_name, 1))
+                        new_name_file = f"{new_name}_{part}{ext}"
+                        logger.info(f"  Renaming {src.name} -> {new_name_file}")
+                        src.rename(lipsync_dir / new_name_file)
 
+                # Rename versioned lipsync files
+                for f in lipsync_dir.glob(f"{old_name}_{part}_v*.*"):
+                    if not f.name.endswith('_prompt.txt'):
+                        new_name_file = f.name.replace(old_name, new_name, 1)
+                        logger.info(f"  Renaming {f.name} -> {new_name_file}")
+                        f.rename(lipsync_dir / new_name_file)
+
+                # Rename lipsync prompt files
+                for f in lipsync_dir.glob(f"{old_name}_{part}_v*_prompt.txt"):
+                    new_name_file = f.name.replace(old_name, new_name, 1)
+                    logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
+                    f.rename(lipsync_dir / new_name_file)
+
+        # Rename notes file
+        old_notes = new_dir / 'notes.txt'
+        if old_notes.exists():
+            logger.info(f"Notes file exists at {old_notes}")
+
+        # Rename files in latest_images folder
+        logger.info(f"Renaming files in {self.latest_images_dir}")
         for ext in ALLOWED_IMAGE_EXTENSIONS:
             src = self.latest_images_dir / f"{old_name}{ext}"
             if src.exists():
-                src.rename(self.latest_images_dir / f"{new_name}{ext}")
+                new_name_file = f"{new_name}{ext}"
+                logger.info(f"  Renaming {src.name} -> {new_name_file}")
+                src.rename(self.latest_images_dir / new_name_file)
 
+        # Rename files in latest_videos folder
+        logger.info(f"Renaming files in {self.latest_videos_dir}")
         for ext in ALLOWED_VIDEO_EXTENSIONS:
             src = self.latest_videos_dir / f"{old_name}{ext}"
             if src.exists():
-                src.rename(self.latest_videos_dir / f"{new_name}{ext}")
+                new_name_file = f"{new_name}{ext}"
+                logger.info(f"  Renaming {src.name} -> {new_name_file}")
+                src.rename(self.latest_videos_dir / new_name_file)
 
+        # Rename thumbnails in cache
         if THUMBNAIL_CACHE_DIR.exists():
-            for thumb in THUMBNAIL_CACHE_DIR.glob(f"{old_name}_*_thumb.jpg"):
-                thumb.rename(THUMBNAIL_CACHE_DIR / thumb.name.replace(old_name, new_name, 1))
+            logger.info(f"Renaming thumbnails in {THUMBNAIL_CACHE_DIR}")
+            project_name = self.project_path.name
+            # Look for thumbnails with project name prefix
+            for thumb in THUMBNAIL_CACHE_DIR.glob(f"{project_name}_{old_name}_*"):
+                new_name_file = thumb.name.replace(f"{project_name}_{old_name}_", f"{project_name}_{new_name}_", 1)
+                logger.info(f"  Renaming thumbnail {thumb.name} -> {new_name_file}")
+                thumb.rename(THUMBNAIL_CACHE_DIR / new_name_file)
 
+        logger.info(f"Successfully renamed shot from {old_name} to {new_name}")
         return self.get_shot_info(new_name)
 
     def create_shot_structure(self, shot_name):
