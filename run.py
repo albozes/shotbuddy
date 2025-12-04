@@ -3,6 +3,8 @@ import socket
 import threading
 import time
 import webbrowser
+import sys
+import signal
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -23,6 +25,111 @@ def load_server_config():
     return host, port
 
 
+def check_port_in_use(host, port):
+    """Check if a port is already in use."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.5)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except:
+        return False
+
+
+def is_shotbuddy_process(pid):
+    """Check if a PID belongs to a Shotbuddy process."""
+    import platform
+    import subprocess
+
+    system = platform.system()
+
+    try:
+        if system == "Darwin" or system == "Linux":
+            # Get process command line
+            result = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                cmd = result.stdout.strip()
+                # Check if it's a Python process running run.py or Shotbuddy
+                return "python" in cmd.lower() and ("run.py" in cmd or "shotbuddy" in cmd.lower())
+        elif system == "Windows":
+            # Get process command line
+            result = subprocess.run(
+                ["wmic", "process", "where", f"ProcessId={pid}", "get", "CommandLine"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                cmd = result.stdout.strip()
+                return "python" in cmd.lower() and ("run.py" in cmd or "shotbuddy" in cmd.lower())
+    except Exception as e:
+        print(f"Could not check process {pid}: {e}")
+        return False
+
+    return False
+
+
+def kill_shotbuddy_on_port(port):
+    """Try to kill Shotbuddy processes using the specified port."""
+    import platform
+    import subprocess
+
+    system = platform.system()
+
+    try:
+        if system == "Darwin" or system == "Linux":
+            # Find the process using the port
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                killed_any = False
+                for pid in pids:
+                    if is_shotbuddy_process(pid):
+                        print(f"Found ghost Shotbuddy process {pid} on port {port}")
+                        print(f"Killing process {pid}...")
+                        subprocess.run(["kill", "-9", pid])
+                        killed_any = True
+                    else:
+                        print(f"Port {port} is in use by another application (PID {pid}), not Shotbuddy.")
+                        return False
+                if killed_any:
+                    time.sleep(0.5)
+                    return True
+        elif system == "Windows":
+            # Find the process using the port
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True
+            )
+            for line in result.stdout.split('\n'):
+                if f":{port}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    pid = parts[-1]
+                    if is_shotbuddy_process(pid):
+                        print(f"Found ghost Shotbuddy process {pid} on port {port}")
+                        print(f"Killing process {pid}...")
+                        subprocess.run(["taskkill", "/F", "/PID", pid])
+                        time.sleep(0.5)
+                        return True
+                    else:
+                        print(f"Port {port} is in use by another application (PID {pid}), not Shotbuddy.")
+                        return False
+    except Exception as e:
+        print(f"Could not kill process on port {port}: {e}")
+        return False
+
+    return False
+
+
 app = create_app()
 
 if __name__ == "__main__":
@@ -30,6 +137,26 @@ if __name__ == "__main__":
     host = os.environ.get("SHOTBUDDY_HOST", cfg_host or "127.0.0.1")
     port = int(os.environ.get("SHOTBUDDY_PORT", cfg_port or 5001))
     debug = os.environ.get("SHOTBUDDY_DEBUG", "0").lower() in {"1", "true", "yes"}
+
+    # Check if port is already in use
+    if check_port_in_use(host, port):
+        print(f"Port {port} is already in use.")
+        print("Checking if it's a ghost Shotbuddy process...")
+
+        if kill_shotbuddy_on_port(port):
+            # Wait a bit more to ensure port is released
+            time.sleep(1)
+            if check_port_in_use(host, port):
+                print(f"Failed to free port {port}. Please manually stop the process or use a different port.")
+                sys.exit(1)
+            else:
+                print(f"Ghost process cleaned up. Port {port} is now free.")
+        else:
+            print(f"\nPort {port} is in use by another application.")
+            print(f"Please either:")
+            print(f"  1. Stop the other application using port {port}")
+            print(f"  2. Configure Shotbuddy to use a different port in shotbuddy.cfg")
+            sys.exit(1)
 
     def _open_browser_when_ready(url):
         while True:
@@ -45,5 +172,13 @@ if __name__ == "__main__":
         args=(f"http://{host}:{port}/",),
         daemon=True,
     ).start()
+
+    # Set up signal handlers for graceful shutdown
+    def signal_handler(sig, frame):
+        print("\nShutting down Shotbuddy...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     app.run(debug=debug, host=host, port=port)
