@@ -156,8 +156,10 @@ def create_project():
         file_handler.clear_thumbnail_cache()
         clear_shot_manager_cache()
 
-        # Optional: sanity check (useful in dev)
-        assert project_manager.get_current_project() is not None
+        # Verify project was set correctly
+        if project_manager.get_current_project() is None:
+            logger.error("Project state inconsistency: project not set after creation")
+            return jsonify({"success": False, "error": "Failed to set project state"}), 500
 
         return jsonify({"success": True, "data": project_info})
     except Exception as e:

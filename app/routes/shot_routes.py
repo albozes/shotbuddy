@@ -1,36 +1,82 @@
 from flask import Blueprint, request, jsonify, send_file, current_app
 from pathlib import Path
+import logging
 
 from app.services.shot_manager import get_shot_manager
 from app.services.file_handler import FileHandler
+from app.utils import (
+    require_project,
+    error_response,
+    reveal_in_file_browser,
+    open_folder_in_browser,
+)
+from app.config.constants import AssetType
 
-import subprocess
-import platform
+logger = logging.getLogger(__name__)
 
 shot_bp = Blueprint('shot', __name__)
 
-@shot_bp.route("/", strict_slashes=False, methods=["GET"])
-def get_shots():
-    try:
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
 
+def _find_file_with_extensions(folder_path, base_name, extensions):
+    """Find a file in folder_path matching base_name with any of the given extensions."""
+    if not folder_path or not folder_path.exists():
+        return None
+
+    for ext in extensions:
+        candidate = folder_path / f'{base_name}{ext}'
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _get_file_for_latest_folder(project_path, shot_name, asset_type):
+    """Get the file to reveal when using 'latest_folder' behavior."""
+    from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
+
+    if asset_type == AssetType.IMAGE:
+        folder_path = project_path / 'shots' / 'latest_images'
+        extensions = ALLOWED_IMAGE_EXTENSIONS
+    elif asset_type == AssetType.VIDEO:
+        folder_path = project_path / 'shots' / 'latest_videos'
+        extensions = ALLOWED_VIDEO_EXTENSIONS
+    else:
+        return None
+
+    return _find_file_with_extensions(folder_path, shot_name, extensions)
+
+
+def _get_file_for_version_folder(project_path, shot_name, asset_type, version):
+    """Get the versioned file to reveal when using 'version_folder' behavior."""
+    from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
+
+    if version <= 0:
+        return None
+
+    if asset_type == AssetType.IMAGE:
+        folder_path = project_path / 'shots' / 'wip' / shot_name / 'images'
+        extensions = ALLOWED_IMAGE_EXTENSIONS
+    elif asset_type == AssetType.VIDEO:
+        folder_path = project_path / 'shots' / 'wip' / shot_name / 'videos'
+        extensions = ALLOWED_VIDEO_EXTENSIONS
+    else:
+        return None
+
+    return _find_file_with_extensions(folder_path, f'{shot_name}_v{version:03d}', extensions)
+
+@shot_bp.route("/", strict_slashes=False, methods=["GET"])
+@require_project
+def get_shots(project):
+    try:
         shot_manager = get_shot_manager(project["path"])
         shots = shot_manager.get_shots()
         return jsonify({"success": True, "data": shots})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/", methods=["POST"])
-def create_shot():
+@require_project
+def create_shot(project):
     try:
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
-
         shot_manager = get_shot_manager(project["path"])
         next_number = shot_manager.get_next_shot_number()
         shot_name = f"SH{next_number:03d}"
@@ -40,58 +86,51 @@ def create_shot():
 
         return jsonify({"success": True, "data": shot_info})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/upload", methods=["POST"])
-def upload_file():
+@require_project
+def upload_file(project):
     try:
         file = request.files.get('file')
         shot_name = request.form.get('shot_name')
         file_type = request.form.get('file_type')
 
         if not file or not shot_name or not file_type:
-            return jsonify({"success": False, "error": "Missing required parameters"}), 400
+            return error_response("Missing required parameters")
         if file.filename == '':
-            return jsonify({"success": False, "error": "No file selected"}), 400
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
+            return error_response("No file selected")
 
         file_handler = FileHandler(project['path'])
         result = file_handler.save_file(file, shot_name, file_type)
 
         return jsonify({"success": True, "data": result})
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return error_response(str(e))
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/notes", methods=["POST"])
-def save_shot_notes():
+@require_project
+def save_shot_notes(project):
     try:
         data = request.get_json()
         shot_name = data.get("shot_name")
         notes = data.get("notes", "")
 
         if not shot_name:
-            return jsonify({"success": False, "error": "Shot name required"}), 400
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
+            return error_response("Shot name required")
 
         shot_manager = get_shot_manager(project["path"])
         shot_manager.save_shot_notes(shot_name, notes)
 
         return jsonify({"success": True})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/prompt", methods=["POST"])
-def save_shot_prompt():
+@require_project
+def save_shot_prompt(project):
     try:
         data = request.get_json()
         shot_name = data.get("shot_name")
@@ -100,104 +139,82 @@ def save_shot_prompt():
         prompt = data.get("prompt", "")
 
         if not shot_name or not asset_type or version is None:
-            return jsonify({"success": False, "error": "Missing parameters"}), 400
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
+            return error_response("Missing parameters")
 
         shot_manager = get_shot_manager(project["path"])
         shot_manager.save_prompt(shot_name, asset_type, int(version), prompt)
 
         return jsonify({"success": True})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/prompt", methods=["GET"])
-def get_shot_prompt():
+@require_project
+def get_shot_prompt(project):
     try:
         shot_name = request.args.get("shot_name")
         asset_type = request.args.get("asset_type")
         version = request.args.get("version", type=int)
 
         if not shot_name or not asset_type or version is None:
-            return jsonify({"success": False, "error": "Missing parameters"}), 400
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
+            return error_response("Missing parameters")
 
         shot_manager = get_shot_manager(project["path"])
         prompt = shot_manager.load_prompt(shot_name, asset_type, version)
 
         return jsonify({"success": True, "data": prompt})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
-@shot_bp.route("/prompt_versions")
 @shot_bp.route("/prompt-versions")
-def get_prompt_versions():
+@require_project
+def get_prompt_versions(project):
     try:
         shot_name = request.args.get("shot_name")
         asset_type = request.args.get("asset_type")
         if not shot_name or not asset_type:
-            return jsonify({"success": False, "error": "Missing parameters"}), 400
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
+            return error_response("Missing parameters")
 
         shot_manager = get_shot_manager(project["path"])
         versions = shot_manager.get_prompt_versions(shot_name, asset_type)
         return jsonify({"success": True, "data": versions})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/rename", methods=["POST"])
-def rename_shot():
+@require_project
+def rename_shot(project):
     try:
         data = request.get_json()
         old_name = data.get("old_name")
         new_name = data.get("new_name")
         if not old_name or not new_name:
-            return jsonify({"success": False, "error": "Old and new names required"}), 400
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
+            return error_response("Old and new names required")
 
         shot_manager = get_shot_manager(project["path"])
         shot_info = shot_manager.rename_shot(old_name, new_name)
 
         return jsonify({"success": True, "data": shot_info})
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return error_response(str(e))
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/create-between", methods=["POST"])
-def create_shot_between():
+@require_project
+def create_shot_between(project):
     try:
         data = request.get_json()
         after_shot = data.get("after_shot")
-
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
 
         shot_manager = get_shot_manager(project["path"])
         shot_info = shot_manager.create_shot_between(after_shot)
 
         return jsonify({"success": True, "data": shot_info})
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return error_response(str(e))
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/thumbnail/<path:filepath>")
 def serve_thumbnail(filepath):
@@ -210,16 +227,18 @@ def serve_thumbnail(filepath):
         thumb_path = thumb_path.resolve()
 
         if not str(thumb_path).startswith(str(thumb_dir)):
-            return "Invalid path", 400
+            return error_response("Invalid path")
 
         if thumb_path.is_file():
             return send_file(str(thumb_path))
-        return "File not found", 404
+        return error_response("File not found", 404)
     except Exception as e:
-        return str(e), 500
+        return error_response(str(e), 500)
 
 @shot_bp.route("/reveal", methods=["POST"])
-def reveal_file():
+@require_project
+def reveal_file(project):
+    """Reveal a file in the system file browser based on settings."""
     try:
         data = request.get_json()
         rel_path = data.get("path")
@@ -227,117 +246,57 @@ def reveal_file():
         asset_type = data.get("asset_type")
 
         project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
-
-        # Get user settings
         settings = project_manager.get_settings()
         thumbnail_behavior = settings.get('thumbnail_click_behavior', 'latest_folder')
 
-        project_path = Path(project["path"])
+        project_path = Path(project["path"]).resolve()
         file_to_select = None
 
         # Determine which file to select based on settings
-        if thumbnail_behavior == 'latest_folder' and shot_name and asset_type:
-            # Select the shot file in the latest folder
-            if asset_type == 'image':
-                folder_path = project_path / 'shots' / 'latest_images'
-            elif asset_type == 'video':
-                folder_path = project_path / 'shots' / 'latest_videos'
-            else:
-                folder_path = None
+        if shot_name and asset_type:
+            if thumbnail_behavior == 'latest_folder':
+                file_to_select = _get_file_for_latest_folder(project_path, shot_name, asset_type)
 
-            if folder_path and folder_path.exists():
-                # Find the file with the shot name in this folder
-                from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
-                extensions = ALLOWED_IMAGE_EXTENSIONS if asset_type == 'image' else ALLOWED_VIDEO_EXTENSIONS
+            elif thumbnail_behavior == 'version_folder':
+                shot_manager = get_shot_manager(project["path"])
+                shot_info = shot_manager.get_shot_info(shot_name)
+                version = shot_info.get(asset_type, {}).get('version', 0)
+                file_to_select = _get_file_for_version_folder(project_path, shot_name, asset_type, version)
 
-                for ext in extensions:
-                    candidate = folder_path / f'{shot_name}{ext}'
-                    if candidate.exists():
-                        file_to_select = candidate
-                        break
-
-        elif thumbnail_behavior == 'version_folder' and shot_name and asset_type:
-            # Select the latest versioned file in the shot's folder
-            shot_manager = get_shot_manager(project["path"])
-            shot_info = shot_manager.get_shot_info(shot_name)
-
-            # Get the version for this asset type
-            version = shot_info.get(asset_type, {}).get('version', 0)
-
-            if version > 0:
-                # Build the versioned file path
-                if asset_type == 'image':
-                    folder_path = project_path / 'shots' / 'wip' / shot_name / 'images'
-                elif asset_type == 'video':
-                    folder_path = project_path / 'shots' / 'wip' / shot_name / 'videos'
-                else:
-                    folder_path = None
-
-                if folder_path and folder_path.exists():
-                    from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
-                    extensions = ALLOWED_IMAGE_EXTENSIONS if asset_type == 'image' else ALLOWED_VIDEO_EXTENSIONS
-
-                    for ext in extensions:
-                        candidate = folder_path / f'{shot_name}_v{version:03d}{ext}'
-                        if candidate.exists():
-                            file_to_select = candidate
-                            break
-
-        # If we found a file to select, reveal it
         if file_to_select:
-            if platform.system() == "Windows":
-                subprocess.Popen(['explorer', '/select,', str(file_to_select)])
-            elif platform.system() == "Darwin":
-                subprocess.Popen(['open', '-R', str(file_to_select)])
-            else:
-                subprocess.Popen(['xdg-open', str(file_to_select.parent)])
+            reveal_in_file_browser(file_to_select)
             return jsonify({"success": True})
 
-        # Fallback to original behavior: reveal the specific file from rel_path
+        # Fallback: reveal the specific file from rel_path
         file_path = Path(rel_path)
         if not file_path.is_absolute():
             file_path = (project_path / file_path).resolve()
         else:
             file_path = file_path.resolve()
 
+        # Security check: ensure the resolved path is within the project directory
+        if not str(file_path).startswith(str(project_path)):
+            return error_response("Invalid path")
+
         if not file_path.exists():
-            return jsonify({"success": False, "error": f"File does not exist: {file_path}"}), 404
+            return error_response(f"File does not exist: {file_path}", 404)
 
-        if platform.system() == "Windows":
-            subprocess.Popen(['explorer', '/select,', str(file_path)])
-        elif platform.system() == "Darwin":
-            subprocess.Popen(['open', '-R', str(file_path)])
-        else:
-            subprocess.Popen(['xdg-open', str(file_path.parent)])
-
+        reveal_in_file_browser(file_path)
         return jsonify({"success": True})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)
 
 
 @shot_bp.route("/open-folder", methods=["POST"])
-def open_shots_folder():
+@require_project
+def open_shots_folder(project):
     """Open the current project's shots folder in the file browser."""
     try:
-        project_manager = current_app.config['PROJECT_MANAGER']
-        project = project_manager.get_current_project()
-        if not project:
-            return jsonify({"success": False, "error": "No current project"}), 400
-
         shots_path = Path(project["path"]) / "shots"
         if not shots_path.exists():
-            return jsonify({"success": False, "error": "Shots folder missing"}), 404
+            return error_response("Shots folder missing", 404)
 
-        if platform.system() == "Windows":
-            subprocess.Popen(["explorer", str(shots_path)])
-        elif platform.system() == "Darwin":
-            subprocess.Popen(["open", str(shots_path)])
-        else:
-            subprocess.Popen(["xdg-open", str(shots_path)])
-
+        open_folder_in_browser(shots_path)
         return jsonify({"success": True})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return error_response(str(e), 500)

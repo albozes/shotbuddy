@@ -1,7 +1,8 @@
 from pathlib import Path
-from PIL import Image
 import logging
 import re
+
+from app.utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,11 @@ logger = logging.getLogger(__name__)
 # three-digit number (e.g. ``SH001_050``).  Deeper nesting with multiple
 # underscores is not allowed.
 SHOT_NAME_RE = re.compile(r"^SH\d{3}(?:_\d{3})?$")
+
+# Shot numbering constants
+SHOT_NUMBER_INCREMENT = 10  # Shots are numbered in increments of 10 (SH010, SH020, etc.)
+INITIAL_SHOT_NUMBER = 10    # First shot starts at SH010
+INITIAL_SUBSHOT_NUMBER = 50 # Sub-shots start at _050 (e.g., SH010_050)
 
 
 def validate_shot_name(name):
@@ -34,21 +40,21 @@ from app.config.constants import (
     ALLOWED_IMAGE_EXTENSIONS,
     ALLOWED_VIDEO_EXTENSIONS,
     THUMBNAIL_CACHE_DIR,
-    THUMBNAIL_SIZE,
+    AssetType,
 )
 
 class ShotManager:
     def __init__(self, project_path):
-        self.project_path = Path(project_path)
-        self.shots_dir = self.project_path / 'shots'
-        self.wip_dir = self.shots_dir / 'wip'
-        self.latest_images_dir = self.shots_dir / 'latest_images'
-        self.latest_videos_dir = self.shots_dir / 'latest_videos'
-        self.legacy_dir = self.project_path / '_legacy'
+        self._paths = ProjectPaths(project_path)
+        self._paths.ensure_directories()
 
-        self.wip_dir.mkdir(parents=True, exist_ok=True)
-        self.latest_images_dir.mkdir(parents=True, exist_ok=True)
-        self.latest_videos_dir.mkdir(parents=True, exist_ok=True)
+        # Expose paths as instance attributes for compatibility
+        self.project_path = self._paths.project_path
+        self.shots_dir = self._paths.shots_dir
+        self.wip_dir = self._paths.wip_dir
+        self.latest_images_dir = self._paths.latest_images_dir
+        self.latest_videos_dir = self._paths.latest_videos_dir
+        self.legacy_dir = self.project_path / '_legacy'
 
     @staticmethod
     def _normalize_path(path):
@@ -56,6 +62,96 @@ class ShotManager:
         if not path:
             return None
         return str(Path(path).resolve()).replace("\\", "/")
+
+    def _rename_versioned_files(self, directory, old_name, new_name, prompt_suffix=None):
+        """Rename versioned asset files and their prompts in a directory.
+
+        Args:
+            directory: Path to the directory containing files
+            old_name: The old shot name prefix
+            new_name: The new shot name prefix
+            prompt_suffix: Optional suffix for prompt files (e.g., '_image_prompt.txt')
+        """
+        if not directory.exists():
+            return
+
+        logger.info(f"Renaming files in {directory}")
+
+        # Rename versioned asset files (exclude prompt files)
+        for f in directory.glob(f"{old_name}_v*.*"):
+            if not f.name.endswith('_prompt.txt'):
+                new_name_file = f.name.replace(old_name, new_name, 1)
+                logger.info(f"  Renaming {f.name} -> {new_name_file}")
+                f.rename(directory / new_name_file)
+
+        # Rename prompt files if suffix specified
+        if prompt_suffix:
+            for f in directory.glob(f"{old_name}_v*{prompt_suffix}"):
+                new_name_file = f.name.replace(old_name, new_name, 1)
+                logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
+                f.rename(directory / new_name_file)
+
+    def _rename_lipsync_files(self, lipsync_dir, old_name, new_name):
+        """Rename all lipsync-related files (driver, target, result)."""
+        if not lipsync_dir.exists():
+            return
+
+        logger.info(f"Renaming files in {lipsync_dir}")
+        for part in ["driver", "target", "result"]:
+            # Rename non-versioned lipsync files
+            for ext in ALLOWED_VIDEO_EXTENSIONS:
+                src = lipsync_dir / f"{old_name}_{part}{ext}"
+                if src.exists():
+                    new_name_file = f"{new_name}_{part}{ext}"
+                    logger.info(f"  Renaming {src.name} -> {new_name_file}")
+                    src.rename(lipsync_dir / new_name_file)
+
+            # Rename versioned lipsync files
+            for f in lipsync_dir.glob(f"{old_name}_{part}_v*.*"):
+                if not f.name.endswith('_prompt.txt'):
+                    new_name_file = f.name.replace(old_name, new_name, 1)
+                    logger.info(f"  Renaming {f.name} -> {new_name_file}")
+                    f.rename(lipsync_dir / new_name_file)
+
+            # Rename lipsync prompt files
+            for f in lipsync_dir.glob(f"{old_name}_{part}_v*_prompt.txt"):
+                new_name_file = f.name.replace(old_name, new_name, 1)
+                logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
+                f.rename(lipsync_dir / new_name_file)
+
+    def _rename_latest_files(self, old_name, new_name):
+        """Rename files in the latest_images and latest_videos directories."""
+        logger.info(f"Renaming files in {self.latest_images_dir}")
+        for ext in ALLOWED_IMAGE_EXTENSIONS:
+            src = self.latest_images_dir / f"{old_name}{ext}"
+            if src.exists():
+                new_name_file = f"{new_name}{ext}"
+                logger.info(f"  Renaming {src.name} -> {new_name_file}")
+                src.rename(self.latest_images_dir / new_name_file)
+
+        logger.info(f"Renaming files in {self.latest_videos_dir}")
+        for ext in ALLOWED_VIDEO_EXTENSIONS:
+            src = self.latest_videos_dir / f"{old_name}{ext}"
+            if src.exists():
+                new_name_file = f"{new_name}{ext}"
+                logger.info(f"  Renaming {src.name} -> {new_name_file}")
+                src.rename(self.latest_videos_dir / new_name_file)
+
+    def _rename_thumbnails(self, old_name, new_name):
+        """Rename cached thumbnails for a shot."""
+        if not THUMBNAIL_CACHE_DIR.exists():
+            return
+
+        logger.info(f"Renaming thumbnails in {THUMBNAIL_CACHE_DIR}")
+        project_name = self.project_path.name
+        for thumb in THUMBNAIL_CACHE_DIR.glob(f"{project_name}_{old_name}_*"):
+            new_name_file = thumb.name.replace(
+                f"{project_name}_{old_name}_",
+                f"{project_name}_{new_name}_",
+                1
+            )
+            logger.info(f"  Renaming thumbnail {thumb.name} -> {new_name_file}")
+            thumb.rename(THUMBNAIL_CACHE_DIR / new_name_file)
 
     def rename_shot(self, old_name, new_name):
         """Rename a shot and all associated files."""
@@ -74,98 +170,14 @@ class ShotManager:
         # Rename the shot folder
         old_dir.rename(new_dir)
 
-        # Rename all versioned asset files and prompt files in images subfolder
-        images_dir = new_dir / "images"
-        if images_dir.exists():
-            logger.info(f"Renaming files in {images_dir}")
-            # Rename versioned image files
-            for f in images_dir.glob(f"{old_name}_v*.*"):
-                if not f.name.endswith('_prompt.txt'):
-                    new_name_file = f.name.replace(old_name, new_name, 1)
-                    logger.info(f"  Renaming {f.name} -> {new_name_file}")
-                    f.rename(images_dir / new_name_file)
+        # Rename files in each subdirectory
+        self._rename_versioned_files(new_dir / "images", old_name, new_name, "_image_prompt.txt")
+        self._rename_versioned_files(new_dir / "videos", old_name, new_name, "_video_prompt.txt")
+        self._rename_lipsync_files(new_dir / "lipsync", old_name, new_name)
 
-            # Rename image prompt files
-            for f in images_dir.glob(f"{old_name}_v*_image_prompt.txt"):
-                new_name_file = f.name.replace(old_name, new_name, 1)
-                logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
-                f.rename(images_dir / new_name_file)
-
-        # Rename all versioned asset files and prompt files in videos subfolder
-        videos_dir = new_dir / "videos"
-        if videos_dir.exists():
-            logger.info(f"Renaming files in {videos_dir}")
-            # Rename versioned video files
-            for f in videos_dir.glob(f"{old_name}_v*.*"):
-                if not f.name.endswith('_prompt.txt'):
-                    new_name_file = f.name.replace(old_name, new_name, 1)
-                    logger.info(f"  Renaming {f.name} -> {new_name_file}")
-                    f.rename(videos_dir / new_name_file)
-
-            # Rename video prompt files
-            for f in videos_dir.glob(f"{old_name}_v*_video_prompt.txt"):
-                new_name_file = f.name.replace(old_name, new_name, 1)
-                logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
-                f.rename(videos_dir / new_name_file)
-
-        # Rename lipsync files
-        lipsync_dir = new_dir / "lipsync"
-        if lipsync_dir.exists():
-            logger.info(f"Renaming files in {lipsync_dir}")
-            for part in ["driver", "target", "result"]:
-                # Rename non-versioned lipsync files
-                for ext in ALLOWED_VIDEO_EXTENSIONS:
-                    src = lipsync_dir / f"{old_name}_{part}{ext}"
-                    if src.exists():
-                        new_name_file = f"{new_name}_{part}{ext}"
-                        logger.info(f"  Renaming {src.name} -> {new_name_file}")
-                        src.rename(lipsync_dir / new_name_file)
-
-                # Rename versioned lipsync files
-                for f in lipsync_dir.glob(f"{old_name}_{part}_v*.*"):
-                    if not f.name.endswith('_prompt.txt'):
-                        new_name_file = f.name.replace(old_name, new_name, 1)
-                        logger.info(f"  Renaming {f.name} -> {new_name_file}")
-                        f.rename(lipsync_dir / new_name_file)
-
-                # Rename lipsync prompt files
-                for f in lipsync_dir.glob(f"{old_name}_{part}_v*_prompt.txt"):
-                    new_name_file = f.name.replace(old_name, new_name, 1)
-                    logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
-                    f.rename(lipsync_dir / new_name_file)
-
-        # Rename notes file
-        old_notes = new_dir / 'notes.txt'
-        if old_notes.exists():
-            logger.info(f"Notes file exists at {old_notes}")
-
-        # Rename files in latest_images folder
-        logger.info(f"Renaming files in {self.latest_images_dir}")
-        for ext in ALLOWED_IMAGE_EXTENSIONS:
-            src = self.latest_images_dir / f"{old_name}{ext}"
-            if src.exists():
-                new_name_file = f"{new_name}{ext}"
-                logger.info(f"  Renaming {src.name} -> {new_name_file}")
-                src.rename(self.latest_images_dir / new_name_file)
-
-        # Rename files in latest_videos folder
-        logger.info(f"Renaming files in {self.latest_videos_dir}")
-        for ext in ALLOWED_VIDEO_EXTENSIONS:
-            src = self.latest_videos_dir / f"{old_name}{ext}"
-            if src.exists():
-                new_name_file = f"{new_name}{ext}"
-                logger.info(f"  Renaming {src.name} -> {new_name_file}")
-                src.rename(self.latest_videos_dir / new_name_file)
-
-        # Rename thumbnails in cache
-        if THUMBNAIL_CACHE_DIR.exists():
-            logger.info(f"Renaming thumbnails in {THUMBNAIL_CACHE_DIR}")
-            project_name = self.project_path.name
-            # Look for thumbnails with project name prefix
-            for thumb in THUMBNAIL_CACHE_DIR.glob(f"{project_name}_{old_name}_*"):
-                new_name_file = thumb.name.replace(f"{project_name}_{old_name}_", f"{project_name}_{new_name}_", 1)
-                logger.info(f"  Renaming thumbnail {thumb.name} -> {new_name_file}")
-                thumb.rename(THUMBNAIL_CACHE_DIR / new_name_file)
+        # Rename files in latest folders and thumbnails
+        self._rename_latest_files(old_name, new_name)
+        self._rename_thumbnails(old_name, new_name)
 
         logger.info(f"Successfully renamed shot from {old_name} to {new_name}")
         return self.get_shot_info(new_name)
@@ -197,7 +209,7 @@ class ShotManager:
                     except ValueError:
                         continue
 
-        next_num = (max(existing_shots) + 10) if existing_shots else 10
+        next_num = (max(existing_shots) + SHOT_NUMBER_INCREMENT) if existing_shots else INITIAL_SHOT_NUMBER
         if next_num > 999:
             raise ValueError("Cannot create more shots: shot number would exceed 999. Consider splitting your project into individual sequences.")
         return next_num
@@ -236,7 +248,7 @@ class ShotManager:
         if not after_shot:
             # Insert before the first shot using the original numeric scheme
             if not existing:
-                new_number = 10
+                new_number = INITIAL_SHOT_NUMBER
             else:
                 first_number = min(int(s[2:]) for s in existing)
                 candidate = max(first_number // 2, 1)
@@ -267,7 +279,7 @@ class ShotManager:
                     else:
                         shot_name = self._create_subshot_name(base_shot, existing)
                 else:
-                    new_number = after_num + 10
+                    new_number = after_num + SHOT_NUMBER_INCREMENT
                     shot_name = f"SH{new_number:03d}"
 
         validate_shot_name(shot_name)
@@ -297,93 +309,111 @@ class ShotManager:
                 except ValueError:
                     continue
 
-        next_num = (max(sub_numbers) + 10) if sub_numbers else 50
+        next_num = (max(sub_numbers) + SHOT_NUMBER_INCREMENT) if sub_numbers else INITIAL_SUBSHOT_NUMBER
         if next_num > 999:
             raise ValueError('No available sub-shot numbers')
 
         return f"{base_shot}_{next_num:03d}"
+
+    def _load_shot_notes(self, shot_dir):
+        """Load notes from a shot directory."""
+        notes_file = shot_dir / 'notes.txt'
+        if notes_file.exists():
+            try:
+                with open(notes_file, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
+            except (IOError, OSError) as e:
+                logger.warning("Failed to read notes file %s: %s", notes_file, e)
+        return ''
+
+    def _get_asset_info(self, shot_name, shot_dir, asset_type):
+        """Get info for an image or video asset.
+
+        Args:
+            shot_name: Name of the shot
+            shot_dir: Path to the shot directory
+            asset_type: AssetType.IMAGE or AssetType.VIDEO
+
+        Returns:
+            dict with file, version, thumbnail, and prompt keys
+        """
+        if asset_type == AssetType.IMAGE:
+            final_dir = self.latest_images_dir
+            wip_subdir = 'images'
+            extensions = ALLOWED_IMAGE_EXTENSIONS
+            get_thumb = self.get_thumbnail_path
+        else:
+            final_dir = self.latest_videos_dir
+            wip_subdir = 'videos'
+            extensions = ALLOWED_VIDEO_EXTENSIONS
+            get_thumb = self.get_video_thumbnail_path
+
+        file_path, version = self._get_latest_asset(
+            final_dir, shot_dir / wip_subdir, shot_name, extensions
+        )
+        file_path = self._normalize_path(file_path)
+
+        prompt = ''
+        if version > 0:
+            prompt = self.load_prompt(shot_name, asset_type, version)
+
+        thumbnail = get_thumb(file_path, shot_name) if file_path else None
+
+        return {
+            'file': file_path,
+            'version': version,
+            'thumbnail': thumbnail,
+            'prompt': prompt,
+        }
+
+    def _get_lipsync_info(self, shot_name, shot_dir):
+        """Get info for all lipsync assets (driver, target, result)."""
+        lipsync_dir = shot_dir / 'lipsync'
+        lipsync = {}
+
+        for part in [AssetType.DRIVER, AssetType.TARGET, AssetType.RESULT]:
+            file_path, ver = self._get_latest_asset(
+                lipsync_dir, lipsync_dir,
+                f'{shot_name}_{part}', ALLOWED_VIDEO_EXTENSIONS
+            )
+            file_path = self._normalize_path(file_path)
+
+            prompt_text = ''
+            if ver > 0:
+                prompt_text = self.load_prompt(shot_name, part, ver)
+
+            thumbnail = None
+            if file_path:
+                thumbnail = self.get_video_thumbnail_path(file_path, f"{shot_name}_{part}")
+
+            lipsync[part] = {
+                'file': file_path,
+                'version': ver,
+                'thumbnail': thumbnail,
+                'prompt': prompt_text,
+            }
+
+        return lipsync
 
     def get_shot_info(self, shot_name):
         """Get information about a specific shot."""
         validate_shot_name(shot_name)
         shot_dir = self.wip_dir / shot_name
 
-        # Load notes
-        notes = ''
-        notes_file = shot_dir / 'notes.txt'
-        if notes_file.exists():
-            try:
-                with open(notes_file, 'r', encoding='utf-8') as f:
-                    notes = f.read().strip()
-            except Exception:
-                pass
+        notes = self._load_shot_notes(shot_dir)
+        image_info = self._get_asset_info(shot_name, shot_dir, AssetType.IMAGE)
+        video_info = self._get_asset_info(shot_name, shot_dir, AssetType.VIDEO)
+        lipsync_info = self._get_lipsync_info(shot_name, shot_dir)
 
-
-        # Latest image
-        latest_image, image_version = self._get_latest_asset(
-            self.latest_images_dir, shot_dir / 'images',
-            shot_name, ALLOWED_IMAGE_EXTENSIONS
-        )
-        latest_image = self._normalize_path(latest_image)
-        image_prompt = ''
-        if image_version > 0:
-            image_prompt = self.load_prompt(shot_name, 'image', image_version)
-
-        # Latest video
-        latest_video, video_version = self._get_latest_asset(
-            self.latest_videos_dir, shot_dir / 'videos',
-            shot_name, ALLOWED_VIDEO_EXTENSIONS
-        )
-        latest_video = self._normalize_path(latest_video)
-        video_prompt = ''
-        if video_version > 0:
-            video_prompt = self.load_prompt(shot_name, 'video', video_version)
-
-        # Lipsync videos
-        lipsync_dir = shot_dir / 'lipsync'
-        lipsync = {}
-        for part in ['driver', 'target', 'result']:
-            file_path, ver = self._get_latest_asset(
-                lipsync_dir, lipsync_dir,
-                f'{shot_name}_{part}', ALLOWED_VIDEO_EXTENSIONS
-            )
-            file_path = self._normalize_path(file_path)
-            prompt_text = ''
-            if ver > 0:
-                prompt_text = self.load_prompt(shot_name, part, ver)
-            lipsync[part] = {
-                'file': file_path,
-                'version': ver,
-                'thumbnail': None,  # will be replaced with image thumb below
-                'prompt': prompt_text,
-            }
-
-        # Thumbnails
-        image_thumb = self.get_thumbnail_path(latest_image, shot_name) if latest_image else None
-        video_thumb = self.get_video_thumbnail_path(latest_video, shot_name) if latest_video else None
-
-        for part_name, info in lipsync.items():
-            info['thumbnail'] = self.get_video_thumbnail_path(info['file'], f"{shot_name}_{part_name}") if info['file'] else None
-
-        logger.debug("%s -> Image thumbnail: %s", shot_name, image_thumb)
-        logger.debug("%s -> Video thumbnail: %s", shot_name, video_thumb)
+        logger.debug("%s -> Image thumbnail: %s", shot_name, image_info['thumbnail'])
+        logger.debug("%s -> Video thumbnail: %s", shot_name, video_info['thumbnail'])
 
         return {
             'name': shot_name,
             'notes': notes,
-            'image': {
-                'file': latest_image,
-                'version': image_version,
-                'thumbnail': image_thumb,
-                'prompt': image_prompt,
-            },
-            'video': {
-                'file': latest_video,
-                'version': video_version,
-                'thumbnail': video_thumb,
-                'prompt': video_prompt,
-            },
-            'lipsync': lipsync,
+            'image': image_info,
+            'video': video_info,
+            'lipsync': lipsync_info,
             'archived': False  # TODO: Implement archiving
         }
 
@@ -434,13 +464,13 @@ class ShotManager:
     def _prompt_file_path(self, shot_name, asset_type, version):
         """Return the path to the prompt file for a specific asset version."""
         shot_dir = self.wip_dir / shot_name
-        if asset_type == 'image':
+        if asset_type == AssetType.IMAGE:
             base_dir = shot_dir / 'images'
             filename = f'{shot_name}_v{version:03d}_image_prompt.txt'
-        elif asset_type == 'video':
+        elif asset_type == AssetType.VIDEO:
             base_dir = shot_dir / 'videos'
             filename = f'{shot_name}_v{version:03d}_video_prompt.txt'
-        elif asset_type in {'driver', 'target', 'result'}:
+        elif asset_type in AssetType.LIPSYNC_TYPES:
             base_dir = shot_dir / 'lipsync'
             filename = f'{shot_name}_{asset_type}_v{version:03d}_prompt.txt'
         else:
@@ -448,13 +478,14 @@ class ShotManager:
         return base_dir / filename
 
     def load_prompt(self, shot_name, asset_type, version):
+        """Load a prompt for a specific asset version."""
         path = self._prompt_file_path(shot_name, asset_type, version)
         if path.exists():
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     return f.read().strip()
-            except Exception:
-                return ''
+            except (IOError, OSError) as e:
+                logger.warning("Failed to read prompt file %s: %s", path, e)
         return ''
 
     def save_prompt(self, shot_name, asset_type, version, prompt):
@@ -471,13 +502,13 @@ class ShotManager:
     def get_prompt_versions(self, shot_name, asset_type):
         """Return a sorted list of prompt versions for the given asset."""
         shot_dir = self.wip_dir / shot_name
-        if asset_type == 'image':
+        if asset_type == AssetType.IMAGE:
             base_dir = shot_dir / 'images'
             pattern = f'{shot_name}_v*_image_prompt.txt'
-        elif asset_type == 'video':
+        elif asset_type == AssetType.VIDEO:
             base_dir = shot_dir / 'videos'
             pattern = f'{shot_name}_v*_video_prompt.txt'
-        elif asset_type in {'driver', 'target', 'result'}:
+        elif asset_type in AssetType.LIPSYNC_TYPES:
             base_dir = shot_dir / 'lipsync'
             pattern = f'{shot_name}_{asset_type}_v*_prompt.txt'
         else:
@@ -508,19 +539,8 @@ class ShotManager:
         thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
 
         if not thumb_path.exists():
-            try:
-                THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-                with Image.open(image_path) as img:
-                    img.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
-                    if img.mode in ("RGBA", "LA", "P"):
-                        background = Image.new("RGB", img.size, (64, 64, 64))
-                        if img.mode == "P":
-                            img = img.convert("RGBA")
-                        background.paste(img, mask=img.split()[-1] if "A" in img.mode else None)
-                        img = background
-                    img.save(str(thumb_path), "JPEG", quality=85)
-            except Exception as e:
-                logger.warning("Error creating thumbnail: %s", e)
+            result = create_image_thumbnail(image_path, thumb_path)
+            if not result:
                 return None
 
         return f"/static/thumbnails/{thumb_filename}"
@@ -530,36 +550,14 @@ class ShotManager:
         if not video_path:
             return None
 
-        import subprocess
-        import shutil as _shutil
-
         video_path = Path(video_path)
         project_name = self.project_path.name
         thumb_filename = f"{project_name}_{shot_name}_{video_path.stem}_vthumb.jpg"
         thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
 
         if not thumb_path.exists():
-            ffmpeg = _shutil.which("ffmpeg")
-            if not ffmpeg:
-                logger.warning("ffmpeg not found; skipping video thumbnail for %s", video_path)
-                return None
-            try:
-                THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-                tmp_path = thumb_path.with_suffix(".tmp.jpg")
-                cmd = [ffmpeg, "-y", "-i", str(video_path), "-frames:v", "1", str(tmp_path)]
-                subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                with Image.open(tmp_path) as img:
-                    img.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
-                    if img.mode in ("RGBA", "LA", "P"):
-                        background = Image.new("RGB", img.size, (64, 64, 64))
-                        if img.mode == "P":
-                            img = img.convert("RGBA")
-                        background.paste(img, mask=img.split()[-1] if "A" in img.mode else None)
-                        img = background
-                    img.save(str(thumb_path), "JPEG", quality=85)
-                tmp_path.unlink(missing_ok=True)
-            except Exception as e:
-                logger.warning("Error creating video thumbnail: %s", e)
+            result = create_video_thumbnail(video_path, thumb_path)
+            if not result:
                 return None
 
         return f"/static/thumbnails/{thumb_filename}"
