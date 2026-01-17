@@ -182,6 +182,34 @@ class ShotManager:
         logger.info(f"Successfully renamed shot from {old_name} to {new_name}")
         return self.get_shot_info(new_name)
 
+    def delete_empty_shot(self, shot_name):
+        """Delete an empty shot (no image or video assets)."""
+        import shutil
+
+        validate_shot_name(shot_name)
+        shot_dir = self.wip_dir / shot_name
+
+        if not shot_dir.exists():
+            raise ValueError(f"Shot {shot_name} does not exist")
+
+        # Verify shot is empty (no versioned files)
+        shot_info = self.get_shot_info(shot_name)
+        if shot_info['image']['version'] > 0 or shot_info['video']['version'] > 0:
+            raise ValueError(f"Shot {shot_name} has assets and cannot be deleted")
+
+        logger.info(f"Deleting empty shot {shot_name}")
+
+        # Remove the shot folder
+        shutil.rmtree(shot_dir)
+
+        # Clean up any thumbnails
+        project_name = self.project_path.name
+        if THUMBNAIL_CACHE_DIR.exists():
+            for thumb in THUMBNAIL_CACHE_DIR.glob(f"{project_name}_{shot_name}_*"):
+                thumb.unlink()
+
+        logger.info(f"Successfully deleted shot {shot_name}")
+
     def create_shot_structure(self, shot_name):
         """Create folder structure for a shot."""
         validate_shot_name(shot_name)

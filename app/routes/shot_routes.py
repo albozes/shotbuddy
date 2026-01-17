@@ -200,6 +200,24 @@ def rename_shot(project):
     except Exception as e:
         return error_response(str(e), 500)
 
+@shot_bp.route("/delete", methods=["POST"])
+@require_project
+def delete_shot(project):
+    try:
+        data = request.get_json()
+        shot_name = data.get("shot_name")
+        if not shot_name:
+            return error_response("Shot name required")
+
+        shot_manager = get_shot_manager(project["path"])
+        shot_manager.delete_empty_shot(shot_name)
+
+        return jsonify({"success": True})
+    except ValueError as e:
+        return error_response(str(e))
+    except Exception as e:
+        return error_response(str(e), 500)
+
 @shot_bp.route("/create-between", methods=["POST"])
 @require_project
 def create_shot_between(project):

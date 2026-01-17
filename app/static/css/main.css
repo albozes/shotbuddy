@@ -24,6 +24,7 @@
 
             /* Accent Colors */
             --color-accent: #00c851;
+            --color-accent-rgb: 0, 200, 81;
             --color-accent-hover: #00b347;
             --color-accent-active: #00a03d;
             --color-accent-muted: rgba(0, 200, 81, 0.15);
@@ -301,21 +302,6 @@
             background: #00a843;
         }*/
 
-        .inline-new-shot-btn {
-            display: none;
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-
-        .drop-between-rows:hover .inline-new-shot-btn,
-        .drop-between-rows.final-drop:hover .inline-new-shot-btn {
-            display: block;
-        }
-
-        .drop-between-rows.drag-over .inline-new-shot-btn {
-            display: none;
-        }
-
         /* Main Container */
         .main-content-wrapper {
             display: flex;
@@ -337,38 +323,51 @@
 
         /* Shot Grid */
         .shot-grid {
-            background: #252525;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+            background: transparent;
+        }
+
+        #shot-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 10px;
         }
 
         .grid-header {
-            background: #2a2a2a;
+            background: var(--color-bg-elevated);
             display: grid;
-            grid-template-columns: 110px 160px 160px 1fr 50px; /* Added 50px for collapse button */
-            align-items: start; /* Align content to top/left */
-            border-bottom: 1px solid #404040;
+            grid-template-columns: 110px 160px 160px 1fr 50px;
+            align-items: start;
+            border-radius: var(--radius-lg);
+            margin-bottom: 4px;
         }
 
         .grid-header-cell {
             justify-content: flex-start;
             text-align: left;
-            padding: 16px;
+            padding: 12px 16px;
             font-weight: 600;
-            font-size: 14px;
-            color: #b5b5b5;
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            letter-spacing: 0.3px;
         }
 
         .shot-row {
             display: grid;
-            grid-template-columns: 110px 160px 160px 1fr 50px; /* Added 50px for collapse button */
-            align-items: start; /* Align content to top/left */
-            border-bottom: 1px solid #404040;
-            transition: all 0.3s ease;
-            padding-bottom: 10px; /* Add space below to mirror top */
+            grid-template-columns: 110px 160px 160px 1fr 50px;
+            align-items: start;
+            background: var(--color-bg-elevated);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border-subtle);
+            transition: all var(--transition-base);
+            padding-bottom: 10px;
             min-height: 100px;
             cursor: default;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .shot-row:hover {
+            background: var(--color-bg-elevated);
         }
 
         .shot-row.collapsed {
@@ -376,14 +375,18 @@
             max-height: 24px;
             overflow: visible;
             cursor: pointer;
-            opacity: 0.3;
+            opacity: 0.4;
             padding-bottom: 0;
-            margin: -6px 0 10px 0;
+            box-shadow: none;
+            border-color: transparent;
         }
 
         .shot-row.collapsed:hover {
-            opacity: 0.6;
-            background: #333;
+            opacity: 0.7;
+            background: var(--color-bg-card);
+            border-color: var(--color-border-subtle);
+            transform: none;
+            box-shadow: none;
         }
 
         .shot-row.collapsed .shot-name {
@@ -391,7 +394,7 @@
             align-items: center;
             padding: 4px 16px;
             font-size: 11px;
-            color: #808080;
+            color: var(--color-text-tertiary);
             min-height: 24px;
             overflow: visible;
         }
@@ -412,17 +415,156 @@
             padding: 4px 5px;
         }
 
-        .shot-row:hover {
-            background: #2a2a2a;
-        }
-
-        .shot-row.collapsed:hover {
-            background: #333;
-        }
-
         .shot-row.archived {
             opacity: 0.5;
-            background: #2a2a2a;
+            background: var(--color-bg-card);
+        }
+
+        /* Shot action buttons - appear on card hover */
+        .shot-action-buttons {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            display: flex;
+            gap: 6px;
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .shot-row {
+            position: relative;
+            z-index: 1;
+        }
+
+        .shot-row:hover .shot-action-buttons {
+            opacity: 1;
+        }
+
+        .shot-row.collapsed .shot-action-buttons {
+            display: none;
+        }
+
+        .shot-action-btn {
+            width: 24px;
+            height: 24px;
+            background: var(--color-bg-hover);
+            border: 1px solid var(--color-border);
+            border-radius: 50%;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shot-action-btn.delete-btn:hover {
+            background: var(--color-error);
+            border-color: var(--color-error);
+            color: white;
+            transform: scale(1.1);
+        }
+
+
+        /* Empty shots state */
+        .empty-shots-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-10);
+            color: var(--color-text-secondary);
+            gap: var(--space-4);
+            border-radius: var(--radius-lg);
+            border: 2px dashed transparent;
+            transition: all var(--transition-base);
+        }
+
+        .empty-shots-state.drag-over {
+            background: var(--color-accent-muted);
+            border-color: var(--color-accent);
+        }
+
+        .empty-shots-state p {
+            font-size: 16px;
+        }
+
+        /* Drop zone between shots */
+        .drop-between-zone {
+            height: 40px;
+            margin: -15px 0;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-base);
+            position: relative;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Insert button between shots */
+        .between-insert-btn {
+            width: 28px;
+            height: 28px;
+            background: var(--color-accent);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0.8);
+            box-shadow: var(--shadow-md);
+            z-index: 101;
+        }
+
+        .drop-between-zone:hover .between-insert-btn {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .between-insert-btn:hover {
+            background: var(--color-accent-hover);
+            transform: scale(1.15);
+        }
+
+        /* When dragging files on page, show expanded hit areas */
+        body.dragging-files .drop-between-zone {
+            height: 50px;
+            margin: -20px 0;
+            background: rgba(var(--color-accent-rgb), 0.1);
+            border: 1px dashed rgba(var(--color-accent-rgb), 0.3);
+        }
+
+        body.dragging-files .between-insert-btn {
+            display: none;
+        }
+
+        .drop-between-zone.drag-over {
+            height: 80px;
+            margin: 5px 0;
+            background: var(--color-accent-muted);
+            border: 2px dashed var(--color-accent);
+        }
+
+        .drop-between-zone.drag-over .between-insert-btn {
+            display: none;
+        }
+
+        .drop-between-zone.drag-over::after {
+            content: 'Drop to create new shot';
+            color: var(--color-accent);
+            font-size: 14px;
+            font-weight: 500;
         }
 
         .collapse-cell {
@@ -899,15 +1041,19 @@
         .skeleton-shots {
             display: flex;
             flex-direction: column;
+            gap: 10px;
+            padding: 10px;
         }
 
         .skeleton-row {
             display: grid;
             grid-template-columns: 110px 160px 160px 1fr 50px;
-            border-bottom: 1px solid var(--color-border-subtle);
             align-items: start;
             padding-bottom: 10px;
             min-height: 100px;
+            background: var(--color-bg-elevated);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border-subtle);
         }
 
         .skeleton-cell {
@@ -975,59 +1121,6 @@
         @keyframes skeleton-shimmer {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
-        }
-
-        /* Drop Between Rows */
-        .drop-between-rows {
-            height: 3px;
-            margin: 0 20px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #808080;
-            font-size: 12px;
-            opacity: 0;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .drop-between-rows:hover {
-            opacity: 1;
-            height: 24px;
-            background: #2a2a2a;
-        }
-
-        .drop-between-rows.drag-over {
-            opacity: 1;
-            height: 60px;
-            margin: 10px 20px;
-        }
-
-        .drop-between-rows.drag-over,
-        .new-shot-drop-zone {
-            background: var(--new-shot-drop-bg);
-            border: var(--new-shot-drop-border);
-            color: var(--new-shot-drop-color);
-        }
-
-        .drop-between-rows.drag-over::after {
-            content: var(--new-shot-drop-text);
-        }
-
-        .drop-between-rows.final-drop {
-            height: 100px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-
-        .drop-between-rows.first-drop {
-            margin-top: 0;
-        }
-
-        .drop-between-rows.final-drop.empty-state {
-            opacity: 1;
         }
 
         /* Notes Column */

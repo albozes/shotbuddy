@@ -105,6 +105,29 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', handlePromptButtonClick);
             checkForProject();
+
+            // Global drag detection for showing drop zones between shots
+            let dragCounter = 0;
+            document.addEventListener('dragenter', (e) => {
+                dragCounter++;
+                if (e.dataTransfer.types.includes('Files')) {
+                    document.body.classList.add('dragging-files');
+                }
+            });
+            document.addEventListener('dragleave', (e) => {
+                dragCounter--;
+                if (dragCounter === 0) {
+                    document.body.classList.remove('dragging-files');
+                }
+            });
+            document.addEventListener('drop', (e) => {
+                dragCounter = 0;
+                document.body.classList.remove('dragging-files');
+            });
+            document.addEventListener('dragend', (e) => {
+                dragCounter = 0;
+                document.body.classList.remove('dragging-files');
+            });
         });
 
         function handlePromptButtonClick(event) {
@@ -199,68 +222,113 @@
             const shotList = document.getElementById("shot-list");
             shotList.innerHTML = "";
 
-            const finalDropZone = document.createElement("div");
-            finalDropZone.className = "drop-between-rows final-drop new-shot-drop-zone";
-            finalDropZone.addEventListener("dragover", handleRowDragOver);
-            finalDropZone.addEventListener("drop", handleRowDrop);
-            finalDropZone.addEventListener("dragleave", handleRowDragLeave);
-            const finalBtn = document.createElement("button");
-            finalBtn.className = "green-button new-shot-btn inline-new-shot-btn";
-            finalBtn.textContent = "New Shot +";
-            finalBtn.addEventListener("click", () => {
-                addNewShotAfter(finalDropZone.getAttribute("data-after-shot"));
-            });
-            finalDropZone.appendChild(finalBtn);
-
-            const firstDropZone = document.createElement("div");
-            firstDropZone.className = "drop-between-rows first-drop";
-            firstDropZone.setAttribute("data-after-shot", "");
-            firstDropZone.addEventListener("dragover", handleRowDragOver);
-            firstDropZone.addEventListener("drop", handleRowDrop);
-            firstDropZone.addEventListener("dragleave", handleRowDragLeave);
-            const firstBtn = document.createElement("button");
-            firstBtn.className = "green-button new-shot-btn inline-new-shot-btn";
-            firstBtn.textContent = "New Shot +";
-            firstBtn.addEventListener("click", () => {
-                addNewShotAfter(firstDropZone.getAttribute("data-after-shot"));
-            });
-            firstDropZone.appendChild(firstBtn);
-
             if (shots.length === 0) {
-                finalDropZone.classList.add("empty-state");
-                finalDropZone.setAttribute("data-after-shot", "");
-                shotList.appendChild(finalDropZone);
+                const emptyState = document.createElement("div");
+                emptyState.className = "empty-shots-state";
+                emptyState.innerHTML = `
+                    <p>No shots yet.</p>
+                    <button class="btn btn-primary" onclick="addNewShotAfter(null)">Create First Shot</button>
+                `;
+                // Add drop zone for empty state
+                emptyState.addEventListener("dragover", (e) => handleDropZoneDragOver(e, null));
+                emptyState.addEventListener("dragleave", handleDropZoneDragLeave);
+                emptyState.addEventListener("drop", (e) => handleDropZoneDrop(e, null));
+                shotList.appendChild(emptyState);
                 return;
             }
 
+            // Add drop zone before first shot
+            const firstDropZone = createDropBetweenZone(null);
             shotList.appendChild(firstDropZone);
 
             shots.forEach((shot, index) => {
                 const shotRow = createShotRow(shot);
                 shotList.appendChild(shotRow);
 
-                if (index < shots.length - 1) {
-                    const dropBetween = document.createElement("div");
-                    dropBetween.className = "drop-between-rows";
-                    dropBetween.setAttribute("data-after-shot", shot.name);
-                    dropBetween.addEventListener("dragover", handleRowDragOver);
-                    dropBetween.addEventListener("drop", handleRowDrop);
-                    dropBetween.addEventListener("dragleave", handleRowDragLeave);
-                    const btn = document.createElement("button");
-                    btn.className = "green-button new-shot-btn inline-new-shot-btn";
-                    btn.textContent = "New Shot +";
-                    btn.addEventListener("click", () => {
-                        addNewShotAfter(dropBetween.getAttribute("data-after-shot"));
-                    });
-                    dropBetween.appendChild(btn);
-                    shotList.appendChild(dropBetween);
-                }
+                // Add drop zone after each shot
+                const dropZone = createDropBetweenZone(shot.name);
+                shotList.appendChild(dropZone);
             });
 
-            finalDropZone.setAttribute("data-after-shot", shots[shots.length - 1].name);
-            shotList.appendChild(finalDropZone);
-
             restoreScroll();
+        }
+
+        function createDropBetweenZone(afterShotName) {
+            const zone = document.createElement("div");
+            zone.className = "drop-between-zone";
+            zone.setAttribute("data-after-shot", afterShotName || "");
+
+            // Add insert button
+            const insertBtn = document.createElement("button");
+            insertBtn.className = "between-insert-btn";
+            insertBtn.title = "Insert new shot";
+            insertBtn.textContent = "+";
+            insertBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                addNewShotAfter(afterShotName);
+            });
+            zone.appendChild(insertBtn);
+
+            zone.addEventListener("dragover", (e) => handleDropZoneDragOver(e, afterShotName));
+            zone.addEventListener("dragleave", handleDropZoneDragLeave);
+            zone.addEventListener("drop", (e) => handleDropZoneDrop(e, afterShotName));
+            return zone;
+        }
+
+        function handleDropZoneDragOver(event, afterShotName) {
+            event.preventDefault();
+            const types = event.dataTransfer.types;
+            if (types && Array.from(types).includes('Files')) {
+                event.currentTarget.classList.add('drag-over');
+            }
+        }
+
+        function handleDropZoneDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        async function handleDropZoneDrop(event, afterShotName) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+
+            const files = event.dataTransfer.files;
+            if (files.length === 0) return;
+
+            try {
+                // Create new shot
+                const response = await fetch('/api/shots/create-between', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ after_shot: afterShotName || null })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const newShot = result.data;
+                    showNotification(`Shot ${newShot.name} created`);
+
+                    // Upload the file to the new shot
+                    const file = files[0];
+                    const fileType = getFileType(file.name);
+
+                    if (fileType) {
+                        await uploadFile(file, newShot.name, fileType);
+                    } else {
+                        showNotification('Unsupported file type', 'error');
+                        loadShots(`shot-row-${newShot.name}`);
+                    }
+                } else {
+                    if (result.error && result.error.includes('shot number would exceed 999')) {
+                        showShotLimitModal();
+                    } else {
+                        showNotification(result.error || 'Failed to create shot', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error creating shot:', error);
+                showNotification('Error creating shot', 'error');
+            }
         }
 
         function createShotRow(shot) {
@@ -273,6 +341,12 @@
             if (isCollapsed) {
                 row.classList.add('collapsed');
             }
+
+            // Check if shot is empty (no image and no video)
+            const isEmpty = shot.image.version === 0 && shot.video.version === 0;
+            const deleteBtn = isEmpty
+                ? `<button class="shot-action-btn delete-btn" onclick="deleteShot('${shot.name}')" title="Delete empty shot"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>`
+                : '';
 
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
@@ -292,6 +366,7 @@
                         <span class="collapse-arrow">▼</span>
                     </button>
                 </div>
+                ${deleteBtn ? `<div class="shot-action-buttons">${deleteBtn}</div>` : ''}
             `;
 
             return row;
@@ -454,6 +529,32 @@
             }
         }
 
+        async function deleteShot(shotName) {
+            try {
+                const response = await fetch('/api/shots/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ shot_name: shotName })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const index = shots.findIndex(s => s.name === shotName);
+                    if (index !== -1) {
+                        shots.splice(index, 1);
+                    }
+                    renderShots();
+                    showNotification(`Shot ${shotName} deleted`);
+                } else {
+                    showNotification(result.error || 'Failed to delete shot', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting shot:', error);
+                showNotification('Error deleting shot', 'error');
+            }
+        }
+
         // Drag and drop handlers
         function handleDragOver(event, fileType) {
             event.preventDefault();
@@ -533,71 +634,6 @@
             }
             window.scrollTo({ top: savedScrollY });
             savedRowId = null;
-        }
-
-        // Drag and drop handlers for rows
-        function handleRowDragOver(event) {
-            event.preventDefault();
-
-            // Some browsers do not populate `dataTransfer.files` during
-            // `dragover`, so check the types list instead. If it includes
-            // "Files", we assume a file is being dragged and show the marker.
-            const types = event.dataTransfer.types;
-            if (types && Array.from(types).includes('Files')) {
-                event.currentTarget.classList.add('drag-over', 'new-shot-drop-zone');
-            }
-        }
-
-        function handleRowDragLeave(event) {
-            event.currentTarget.classList.remove('drag-over', 'new-shot-drop-zone');
-        }
-
-        async function handleRowDrop(event) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('drag-over', 'new-shot-drop-zone');
-
-            const files = event.dataTransfer.files;
-            if (files.length === 0) return;
-
-            const afterShot = event.currentTarget.getAttribute('data-after-shot');
-
-            try {
-                // Create new shot
-                const response = await fetch('/api/shots/create-between', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        after_shot: afterShot || null
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    const newShot = result.data;
-                    showNotification(`Shot ${newShot.name} created`);
-
-                    // Upload the file to the new shot
-                    const file = files[0];
-                    const fileType = getFileType(file.name);
-
-                    if (fileType) {
-                        await uploadFile(file, newShot.name, fileType);
-                    } else {
-                        showNotification('Unsupported file type', 'error');
-                        loadShots(`shot-row-${newShot.name}`); // Still refresh to show the new shot
-                    }
-                } else {
-                    if (result.error && result.error.includes('shot number would exceed 999')) {
-                        showShotLimitModal();
-                    } else {
-                        showNotification(result.error || 'Failed to create shot', 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Error creating shot:', error);
-                showNotification('Error creating shot', 'error');
-            }
         }
 
         function getFileType(filename) {

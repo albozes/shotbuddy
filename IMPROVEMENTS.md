@@ -6,18 +6,6 @@ This document tracks pending UI and design improvements for ShotBuddy.
 
 ## Aesthetic Improvements
 
-### Card-Based Shot Layout
-
-**Current:** Rigid table-like grid that feels like a spreadsheet.
-
-**Improvement:**
-- Wrap each shot row in a subtle card with rounded corners
-- Add hover state with slight elevation/border highlight
-- Better visual separation between shots
-- Consider optional "compact" vs "comfortable" view toggle
-
----
-
 ### Refined Color Palette
 
 **Current:** Functional dark theme with green accent, but lacks visual warmth.
@@ -161,5 +149,5 @@ This document tracks pending UI and design improvements for ShotBuddy.
 | Priority | Items |
 |----------|-------|
 | High | Expandable notes, Micro-interactions, Thumbnail polish |
-| Medium | Card layout, Search & filter, Typography hierarchy, Visual spacing |
+| Medium | Search & filter, Typography hierarchy, Visual spacing |
 | Low | Light mode, Color palette refinement, Empty states, Accessibility |
