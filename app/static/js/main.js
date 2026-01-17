@@ -138,20 +138,17 @@
         }
 
         function showSetupScreen() {
-            document.getElementById('setup-screen').style.display = 'flex';
             document.getElementById('main-interface').style.display = 'none';
-            // Show the "no project" card, hide the loading card
-            document.getElementById('setup-card-loading').style.display = 'none';
-            document.getElementById('setup-card-no-project').style.display = 'block';
+            document.getElementById('setup-screen').style.display = 'flex';
         }
 
         function showMainInterface() {
-            // Ensure skeleton is visible before showing main interface
-            document.getElementById('skeleton-loading').style.display = 'block';
-            document.getElementById('shot-grid').style.display = 'none';
-
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('main-interface').style.display = 'block';
+            // Ensure skeleton is visible and shot-grid hidden when transitioning from setup screen
+            document.getElementById('skeleton-loading').style.display = 'block';
+            document.getElementById('shot-grid').style.display = 'none';
+            // Update project info
             document.getElementById('project-title').textContent = currentProject.name;
             const input = document.getElementById('manual-path-input');
             if (input && currentProject && currentProject.path) {

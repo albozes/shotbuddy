@@ -26,23 +26,19 @@
         </div>
     </div>
 
-    <!-- Setup Screen -->
-    <div id="setup-screen" class="setup-screen">
-        <div class="setup-card" id="setup-card-loading">
-            <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
-            <p style="margin-bottom: 30px; color: #b5b5b5;">Loading...</p>
-        </div>
-        <div class="setup-card" id="setup-card-no-project" style="display: none;">
+    <!-- Setup Screen (hidden by default - shown only if no project found) -->
+    <div id="setup-screen" class="setup-screen" style="display: none;">
+        <div class="setup-card" id="setup-card-no-project">
             <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
             <p style="margin-bottom: 30px; color: #b5b5b5;">No project is currently open.</p>
             <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Use the menu above to create a new project or open an existing one.</p>
         </div>
     </div>
 
-    <!-- Main Interface (hidden initially) -->
-    <div id="main-interface" style="display: none;">
+    <!-- Main Interface (visible by default - skeleton shows immediately) -->
+    <div id="main-interface">
         <div class="header">
-            <h1 class="project-title" id="project-title">Loading...</h1>
+            <h1 class="project-title" id="project-title"></h1>
             <div class="header-controls">
                 <button class="dark-button icon-button" onclick="openShotsFolder()" title="Open Project Shots Folder">
                     <img src="{{ url_for('static', filename='icons/folder_24.png') }}" alt="Open Project Shots Folder" />
