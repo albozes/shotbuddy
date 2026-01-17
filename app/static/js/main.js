@@ -204,6 +204,17 @@
                         document.getElementById('skeleton-loading').style.display = 'none';
                         document.getElementById('shot-grid').style.display = 'block';
                         restoreScroll();
+
+                        // Trigger upload success animation if pending
+                        if (window.pendingUploadAnimation) {
+                            const { shotName, type } = window.pendingUploadAnimation;
+                            const thumbnail = document.querySelector(`#shot-row-${shotName} .drop-zone[ondragover*="${type}"] .preview-thumbnail`);
+                            if (thumbnail) {
+                                thumbnail.classList.add('upload-success');
+                                setTimeout(() => thumbnail.classList.remove('upload-success'), 700);
+                            }
+                            window.pendingUploadAnimation = null;
+                        }
                     }, remaining);
 
                     loadReferenceImages();
@@ -409,7 +420,7 @@
                                 onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
                             <div class="version-dropdown-container">
-                                <div class="version-badge" onclick="toggleVersionDropdown(event, this)">v${String(file.version).padStart(3, '0')}</div>
+                                <div class="version-badge" onclick="toggleShotVersionDropdown(event, this)">v${String(file.version).padStart(3, '0')}</div>
                                 <div class="version-dropdown-menu">${versionItems}</div>
                             </div>
                             <button class="prompt-button"
@@ -428,7 +439,10 @@
                          ondrop="handleDrop(event, '${shot.name}', '${type}')"
                          ondragleave="handleDragLeave(event)">
                         <div class="drop-placeholder">
-                            <div class="text">Add ${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                            ${type === 'image'
+                                ? '<svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>'
+                                : '<svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>'
+                            }
                         </div>
                     </div>
                 `;
@@ -597,6 +611,8 @@
 
                 if (result.success) {
                     showNotification(`${file.name} uploaded successfully!`);
+                    // Store upload target for animation after reload
+                    window.pendingUploadAnimation = { shotName, type };
                     loadShots(`shot-row-${shotName}`); // Refresh and keep scroll
                 } else {
                     showNotification(result.error || 'Upload failed', 'error');
@@ -1001,19 +1017,32 @@ async function loadSettings() {
         const result = await response.json();
         if (result.success && result.settings) {
             currentSettings = result.settings;
+            // Apply saved theme
+            applyTheme(currentSettings.color_theme || 'forest-green');
         }
     } catch (e) {
         console.error('Failed to load settings:', e);
     }
 }
 
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+}
+
+function previewTheme(theme) {
+    applyTheme(theme);
+}
+
 async function openSettingsModal() {
     // Load current settings first
     await loadSettings();
 
-    // Set the dropdown value
-    const dropdown = document.getElementById('thumbnail-click-behavior');
-    dropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
+    // Set the dropdown values
+    const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
+    thumbnailDropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
+
+    const themeDropdown = document.getElementById('color-theme');
+    themeDropdown.value = currentSettings.color_theme || 'forest-green';
 
     // Show the modal with animation
     const modal = document.getElementById('settings-modal');
@@ -1024,6 +1053,9 @@ async function openSettingsModal() {
 }
 
 function closeSettingsModal() {
+    // Revert to saved theme if cancelled
+    applyTheme(currentSettings.color_theme || 'forest-green');
+
     const modal = document.getElementById('settings-modal');
     modal.classList.remove('show');
     setTimeout(() => {
@@ -1032,9 +1064,11 @@ function closeSettingsModal() {
 }
 
 async function saveSettings() {
-    const dropdown = document.getElementById('thumbnail-click-behavior');
+    const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
+    const themeDropdown = document.getElementById('color-theme');
     const newSettings = {
-        thumbnail_click_behavior: dropdown.value
+        thumbnail_click_behavior: thumbnailDropdown.value,
+        color_theme: themeDropdown.value
     };
 
     try {
@@ -1046,7 +1080,8 @@ async function saveSettings() {
         const result = await response.json();
 
         if (result.success) {
-            currentSettings = result.settings;
+            // Merge new settings with server response to ensure color_theme persists
+            currentSettings = { ...result.settings, ...newSettings };
             showNotification('Settings saved successfully', 'success');
             closeSettingsModal();
         } else {
@@ -1086,9 +1121,9 @@ window.refreshThumbnails = async function() {
     }
 };
 
-// ===== VERSION DROPDOWN =====
+// ===== SHOT ROW VERSION DROPDOWN =====
 
-function toggleVersionDropdown(event, badgeElement) {
+function toggleShotVersionDropdown(event, badgeElement) {
     event.stopPropagation();
 
     const container = badgeElement.parentElement;
@@ -1224,7 +1259,8 @@ window.hideVideoPreview = function(element) {
     }
 };
 
-// Load settings on page load
+// Apply default theme immediately, then load saved settings
+applyTheme('forest-green');
 loadSettings();
 
 // Toggle shot collapse/expand
@@ -1234,8 +1270,19 @@ async function toggleShotCollapse(shotName) {
 
     const isCurrentlyCollapsed = row.classList.contains('collapsed');
 
-    // Toggle the collapsed class
-    row.classList.toggle('collapsed');
+    if (isCurrentlyCollapsed) {
+        // Expanding: add expanding class, remove collapsed, then clean up after animation
+        row.classList.add('expanding');
+        row.classList.remove('collapsed');
+
+        // Remove expanding class after animation completes (0.2s fade delay + 0.5s animation)
+        setTimeout(() => {
+            row.classList.remove('expanding');
+        }, 700);
+    } else {
+        // Collapsing: just add collapsed class (CSS animation handles the rest)
+        row.classList.add('collapsed');
+    }
 
     // Update the collapsed_shots array
     if (!currentSettings.collapsed_shots) {

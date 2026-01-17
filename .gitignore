@@ -10,6 +10,8 @@ Tests/
 # Local files
 run.command
 .claude/
+2026-TRENDS.md
+DESIGN-UPDATE.md
 
 # Prevent accidentally committing project data folders
 '/

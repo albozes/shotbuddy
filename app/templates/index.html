@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v={{ range(100000) | random }}">
 </head>
 <body>
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
     <div class="menu-bar">
         <div class="setup-panel">
             <input
@@ -100,7 +101,8 @@
                     </div>
                 </div>
                 <div class="loading" id="loading" style="display: none;">Loading shots...</div>
-                <div class="shot-grid" id="shot-grid" style="display: none;">
+                <div class="shot-grid" id="shot-grid" tabindex="-1" style="display: none;">
+                    <main id="main-content">
                     <div class="grid-header">
                         <div class="grid-header-cell">Shot Name</div>
                         <div class="grid-header-cell">Image</div>
@@ -110,6 +112,7 @@
                         <div class="grid-header-cell collapse-header"></div>
                     </div>
                     <div id="shot-list"></div>
+                    </main>
                 </div>
             </div>
         </div>
@@ -204,6 +207,18 @@
     <div id="settings-modal" class="modal">
         <div class="modal-content">
             <h3 style="margin-bottom: 20px;">Settings</h3>
+            <div style="margin-bottom: 20px;">
+                <label for="color-theme" style="display: block; margin-bottom: 8px; color: #e0e0e0;">
+                    Color Theme:
+                </label>
+                <select id="color-theme" class="settings-dropdown" onchange="previewTheme(this.value)">
+                    <option value="forest-green">Forest Green</option>
+                    <option value="cinema-gold">Cinema Gold</option>
+                    <option value="midnight-blue">Midnight Blue</option>
+                    <option value="coral-sunset">Coral Sunset</option>
+                    <option value="ocean-depths">Ocean Depths</option>
+                </select>
+            </div>
             <div style="margin-bottom: 20px;">
                 <label for="thumbnail-click-behavior" style="display: block; margin-bottom: 8px; color: #e0e0e0;">
                     Clicking the thumbnail selects:
