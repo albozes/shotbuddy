@@ -7,6 +7,10 @@ venv/
 Tests/
 .DS_Store
 
+# Local files
+run.command
+.claude/
+
 # Prevent accidentally committing project data folders
 '/
 "/

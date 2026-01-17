@@ -160,6 +160,11 @@ def create_video_thumbnail(video_path, thumb_path, size=None):
 
     try:
         thumb_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Delete existing thumbnail to ensure fresh generation
+        if thumb_path.exists():
+            thumb_path.unlink()
+
         tmp_path = thumb_path.with_suffix(".tmp.jpg")
 
         cmd = [ffmpeg, "-y", "-i", str(video_path), "-frames:v", "1", str(tmp_path)]

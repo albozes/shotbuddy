@@ -311,6 +311,17 @@
                 const videoAttrs = type === 'video' && file.file ?
                     `data-video-src="${file.file}" onmouseenter="showVideoPreview(this)" onmouseleave="hideVideoPreview(this)"` : '';
 
+                // Build version dropdown items (newest first)
+                let versionItems = '';
+                for (let v = file.version; v >= 1; v--) {
+                    const isCurrent = v === file.version;
+                    versionItems += `<div class="version-dropdown-item${isCurrent ? ' current' : ''}"
+                                         data-shot="${shot.name}"
+                                         data-type="${type}"
+                                         data-version="${v}"
+                                         onclick="selectVersion(event, '${shot.name}', '${type}', ${v})">v${String(v).padStart(3, '0')}</div>`;
+                }
+
                 return `
                     <div class="drop-zone"
                          ondragover="handleDragOver(event, '${type}')"
@@ -322,7 +333,10 @@
                                 ${videoAttrs}
                                 onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
-                            <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                            <div class="version-dropdown-container">
+                                <div class="version-badge" onclick="toggleVersionDropdown(event, this)">v${String(file.version).padStart(3, '0')}</div>
+                                <div class="version-dropdown-menu">${versionItems}</div>
+                            </div>
                             <button class="prompt-button"
                                     title="View and edit prompt"
                                     data-shot="${shot.name}"
@@ -639,11 +653,71 @@
         }
 
 function editShotName(element, currentName) {
-    const newName = prompt('Enter new shot name', currentName);
-    if (!newName || newName === currentName) {
+    // Prevent editing if already in edit mode
+    if (element.querySelector('.shot-name-input')) {
         return;
     }
-    renameShot(currentName, newName);
+
+    // Store original text and clear element
+    const originalText = element.textContent;
+    element.textContent = '';
+
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'shot-name-input';
+    input.value = currentName;
+
+    // Add input to element
+    element.appendChild(input);
+
+    // Focus and select all text
+    input.focus();
+    input.select();
+
+    // Track if we've already processed the edit (to prevent double-save)
+    let editProcessed = false;
+
+    function saveEdit() {
+        if (editProcessed) return;
+        editProcessed = true;
+
+        const newName = input.value.trim();
+        element.textContent = newName || originalText;
+
+        // Update onclick to use new name
+        if (newName && newName !== currentName) {
+            element.setAttribute('onclick', `editShotName(this, '${newName}')`);
+            renameShot(currentName, newName);
+        }
+    }
+
+    function cancelEdit() {
+        if (editProcessed) return;
+        editProcessed = true;
+        element.textContent = originalText;
+    }
+
+    // Handle Enter and Escape keys
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+
+    // Save on blur (clicking outside)
+    input.addEventListener('blur', () => {
+        // Small delay to allow keydown handlers to fire first
+        setTimeout(() => {
+            if (!editProcessed) {
+                saveEdit();
+            }
+        }, 0);
+    });
 }
 
 async function renameShot(oldName, newName) {
@@ -976,6 +1050,102 @@ window.refreshThumbnails = async function() {
     }
 };
 
+// ===== VERSION DROPDOWN =====
+
+function toggleVersionDropdown(event, badgeElement) {
+    event.stopPropagation();
+
+    const container = badgeElement.parentElement;
+    const menu = container.querySelector('.version-dropdown-menu');
+
+    // Close all other open dropdowns first
+    document.querySelectorAll('.version-dropdown-menu.show').forEach(m => {
+        if (m !== menu) m.classList.remove('show');
+    });
+
+    menu.classList.toggle('show');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.version-dropdown-container')) {
+        document.querySelectorAll('.version-dropdown-menu.show').forEach(m => {
+            m.classList.remove('show');
+        });
+    }
+});
+
+async function selectVersion(event, shotName, assetType, selectedVersion) {
+    event.stopPropagation();
+
+    const dropdownItem = event.target.closest('.version-dropdown-item');
+    const container = dropdownItem.closest('.version-dropdown-container');
+    const badge = container.querySelector('.version-badge');
+    const menu = container.querySelector('.version-dropdown-menu');
+    const filePreview = container.closest('.file-preview');
+    const thumbnail = filePreview.querySelector('.preview-thumbnail');
+
+    // Close the dropdown
+    menu.classList.remove('show');
+
+    // Update badge immediately
+    badge.textContent = `v${String(selectedVersion).padStart(3, '0')}`;
+
+    // Update dropdown item styles
+    menu.querySelectorAll('.version-dropdown-item').forEach(item => {
+        item.classList.remove('current');
+    });
+    dropdownItem.classList.add('current');
+
+    // Clear thumbnail immediately to show it's loading
+    thumbnail.style.backgroundImage = 'none';
+
+    try {
+        const response = await fetch('/api/shots/restore-version', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shot_name: shotName,
+                asset_type: assetType,
+                version: selectedVersion
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Force reload thumbnail with cache-busting
+            if (result.thumbnail) {
+                const img = new Image();
+                img.onload = () => {
+                    thumbnail.style.backgroundImage = `url('${result.thumbnail}?t=${Date.now()}')`;
+                };
+                img.src = `${result.thumbnail}?t=${Date.now()}`;
+            }
+
+            // For videos, update the preview source with cache buster
+            if (assetType === 'video' && result.file_path) {
+                thumbnail.dataset.videoSrc = result.file_path;
+                thumbnail.dataset.videoCacheBuster = Date.now();
+
+                // If video preview is currently playing, refresh it
+                const existingPreview = thumbnail.querySelector('.video-preview-container');
+                if (existingPreview) {
+                    hideVideoPreview(thumbnail);
+                    showVideoPreview(thumbnail);
+                }
+            }
+
+            showNotification(`Restored v${String(selectedVersion).padStart(3, '0')} to Latest folder`);
+        } else {
+            showNotification(result.error || 'Failed to restore version', 'error');
+        }
+    } catch (error) {
+        console.error('Error restoring version:', error);
+        showNotification('Error restoring version', 'error');
+    }
+}
+
 // ===== VIDEO PREVIEW ON HOVER =====
 
 window.showVideoPreview = function(element) {
@@ -988,7 +1158,11 @@ window.showVideoPreview = function(element) {
 
     const video = document.createElement('video');
     video.className = 'video-preview';
-    video.src = `/api/shots/serve-video?path=${encodeURIComponent(videoSrc)}`;
+
+    // Add cache buster to force reload after version changes
+    const cacheBuster = element.dataset.videoCacheBuster || '';
+    const cacheParam = cacheBuster ? `&t=${cacheBuster}` : '';
+    video.src = `/api/shots/serve-video?path=${encodeURIComponent(videoSrc)}${cacheParam}`;
     video.muted = true;
     video.loop = true;
     video.playsInline = true;

@@ -408,6 +408,86 @@ def generate_thumbnail(project):
         return error_response(str(e), 500)
 
 
+@shot_bp.route("/restore-version", methods=["POST"])
+@require_project
+def restore_version(project):
+    """Restore a previous version to the latest folder."""
+    try:
+        import shutil
+        from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
+
+        data = request.get_json()
+        shot_name = data.get("shot_name")
+        asset_type = data.get("asset_type")
+        version = data.get("version")
+
+        if not shot_name or not asset_type or version is None:
+            return error_response("Missing required parameters")
+
+        project_path = Path(project["path"])
+
+        # Determine paths based on asset type
+        if asset_type == AssetType.IMAGE:
+            wip_dir = project_path / "shots" / "wip" / shot_name / "images"
+            latest_dir = project_path / "shots" / "latest_images"
+            extensions = ALLOWED_IMAGE_EXTENSIONS
+        elif asset_type == AssetType.VIDEO:
+            wip_dir = project_path / "shots" / "wip" / shot_name / "videos"
+            latest_dir = project_path / "shots" / "latest_videos"
+            extensions = ALLOWED_VIDEO_EXTENSIONS
+        else:
+            return error_response(f"Invalid asset type: {asset_type}")
+
+        # Find the versioned file
+        version_file = _find_file_with_extensions(
+            wip_dir,
+            f"{shot_name}_v{version:03d}",
+            extensions
+        )
+
+        if not version_file:
+            return error_response(f"Version {version} not found")
+
+        # Remove existing files in latest folder for this shot
+        for ext in extensions:
+            existing = latest_dir / f"{shot_name}{ext}"
+            if existing.exists():
+                existing.unlink()
+
+        # Copy the versioned file to latest folder
+        dest_path = latest_dir / f"{shot_name}{version_file.suffix}"
+        shutil.copy2(str(version_file), str(dest_path))
+
+        # Regenerate thumbnail for the restored version
+        from app.config.constants import THUMBNAIL_CACHE_DIR
+        from app.utils import create_image_thumbnail, create_video_thumbnail
+
+        project_name = project_path.name
+        if asset_type == AssetType.IMAGE:
+            thumb_filename = f"{project_name}_{shot_name}_{dest_path.stem}_thumb.jpg"
+            thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+            create_image_thumbnail(dest_path, thumb_path)
+        else:
+            thumb_filename = f"{project_name}_{shot_name}_{dest_path.stem}_vthumb.jpg"
+            thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+            create_video_thumbnail(dest_path, thumb_path)
+
+        thumbnail_url = f"/static/thumbnails/{thumb_filename}"
+
+        # For videos, also return the file path for hover preview
+        file_path = str(dest_path) if asset_type == AssetType.VIDEO else None
+
+        logger.info("Restored %s %s version %d", shot_name, asset_type, version)
+        return jsonify({
+            "success": True,
+            "thumbnail": thumbnail_url,
+            "file_path": file_path
+        })
+    except Exception as e:
+        logger.error("Error restoring version: %s", e)
+        return error_response(str(e), 500)
+
+
 @shot_bp.route("/generate-thumbnails-batch", methods=["POST"])
 @require_project
 def generate_thumbnails_batch(project):
