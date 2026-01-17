@@ -16,7 +16,8 @@ class ProjectManager:
             'recent_projects': [],
             'last_scanned': {},
             'settings': {
-                'thumbnail_click_behavior': 'latest_folder'  # 'latest_folder' or 'version_folder'
+                'thumbnail_click_behavior': 'latest_folder',  # 'latest_folder' or 'version_folder'
+                'color_theme': 'forest-green'
             }
         }
         self.ensure_config_dir()
@@ -45,6 +46,8 @@ class ProjectManager:
                         self.projects['settings'] = {}
                     if 'thumbnail_click_behavior' not in self.projects['settings']:
                         self.projects['settings']['thumbnail_click_behavior'] = 'latest_folder'
+                    if 'color_theme' not in self.projects['settings']:
+                        self.projects['settings']['color_theme'] = 'forest-green'
             except Exception as e:
                 logger.warning("Failed to load projects.json: %s", e)
         logger.info("Loaded current project: %s", self.projects.get('current_project'))
@@ -156,20 +159,22 @@ class ProjectManager:
     def get_settings(self):
         """Get user settings (global + project-specific)."""
         global_settings = self.projects.get('settings', {
-            'thumbnail_click_behavior': 'latest_folder'
+            'thumbnail_click_behavior': 'latest_folder',
+            'color_theme': 'forest-green'
         })
         project_settings = self.load_project_settings()
 
         # Merge global and project settings
         return {
             'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
+            'color_theme': global_settings.get('color_theme', 'forest-green'),
             'collapsed_shots': project_settings.get('collapsed_shots', [])
         }
 
     def update_settings(self, settings_dict):
         """Update user settings and save (handles both global and project-specific settings)."""
         # Separate global settings from project-specific settings
-        global_settings_keys = ['thumbnail_click_behavior']
+        global_settings_keys = ['thumbnail_click_behavior', 'color_theme']
         project_settings_keys = ['collapsed_shots']
 
         # Update global settings
