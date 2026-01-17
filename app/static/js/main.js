@@ -46,12 +46,21 @@
                 return;
             }
             document.getElementById('new-project-name').value = '';
-            document.getElementById('create-project-modal').style.display = 'flex';
+            const modal = document.getElementById('create-project-modal');
+            modal.style.display = 'flex';
+            // Trigger animation
+            requestAnimationFrame(() => {
+                modal.classList.add('show');
+            });
             document.getElementById('new-project-name').focus();
         }
 
         function closeCreateProjectModal() {
-            document.getElementById('create-project-modal').style.display = 'none';
+            const modal = document.getElementById('create-project-modal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 200);
         }
 
         async function confirmCreateProject() {
@@ -137,6 +146,10 @@
         }
 
         function showMainInterface() {
+            // Ensure skeleton is visible before showing main interface
+            document.getElementById('skeleton-loading').style.display = 'block';
+            document.getElementById('shot-grid').style.display = 'none';
+
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('main-interface').style.display = 'block';
             document.getElementById('project-title').textContent = currentProject.name;
@@ -148,8 +161,12 @@
 
         async function loadShots(rowId = null) {
             captureScroll(rowId);
-            document.getElementById('loading').style.display = 'block';
+            // Show skeleton loading, hide actual grid
+            document.getElementById('skeleton-loading').style.display = 'block';
             document.getElementById('shot-grid').style.display = 'none';
+
+            const skeletonStart = Date.now();
+            const MIN_SKELETON_TIME = 400; // Minimum time to show skeleton (ms)
 
             try {
                 const response = await fetch('/api/shots');
@@ -158,17 +175,26 @@
                 if (result.success) {
                     shots = result.data;
                     renderShots();
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('shot-grid').style.display = 'block';
-                    restoreScroll();
+
+                    // Ensure skeleton shows for minimum time to avoid jarring flash
+                    const elapsed = Date.now() - skeletonStart;
+                    const remaining = Math.max(0, MIN_SKELETON_TIME - elapsed);
+
+                    setTimeout(() => {
+                        document.getElementById('skeleton-loading').style.display = 'none';
+                        document.getElementById('shot-grid').style.display = 'block';
+                        restoreScroll();
+                    }, remaining);
+
                     loadReferenceImages();
                 } else {
                     showNotification(result.error || 'Failed to load shots', 'error');
+                    document.getElementById('skeleton-loading').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error loading shots:', error);
                 showNotification('Error loading shots', 'error');
-                document.getElementById('loading').style.display = 'none';
+                document.getElementById('skeleton-loading').style.display = 'none';
             }
         }
 
@@ -280,11 +306,14 @@
 
             if (hasFile) {
                 const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
-                const thumbnailStyle = thumbnailUrl ? 
-                    `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` : 
+                const thumbnailStyle = thumbnailUrl ?
+                    `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
                     'background: #404040;';
 
-            
+                // Add video preview attributes for video thumbnails
+                const videoAttrs = type === 'video' && file.file ?
+                    `data-video-src="${file.file}" onmouseenter="showVideoPreview(this)" onmouseleave="hideVideoPreview(this)"` : '';
+
                 return `
                     <div class="drop-zone"
                          ondragover="handleDragOver(event, '${type}')"
@@ -293,6 +322,7 @@
                         <div class="file-preview">
                             <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}"
                                 style="${thumbnailStyle}"
+                                ${videoAttrs}
                                 onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
                             <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
@@ -764,11 +794,18 @@ async function openPromptModal(shotName, assetType, version) {
     document.getElementById('prompt-text').value = prompt;
 
     modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+    });
     document.getElementById('prompt-text').focus();
 }
 
 function closePromptModal() {
-    document.getElementById('prompt-modal').style.display = 'none';
+    const modal = document.getElementById('prompt-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 200);
 }
 function copyToNewPromptVersion() {
     const modal = document.getElementById('prompt-modal');
@@ -831,11 +868,19 @@ async function openShotsFolder() {
 }
 
 function showShotLimitModal() {
-    document.getElementById('shot-limit-modal').style.display = 'flex';
+    const modal = document.getElementById('shot-limit-modal');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+    });
 }
 
 function closeShotLimitModal() {
-    document.getElementById('shot-limit-modal').style.display = 'none';
+    const modal = document.getElementById('shot-limit-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 200);
 }
 
 // Settings Modal Functions
@@ -863,12 +908,20 @@ async function openSettingsModal() {
     const dropdown = document.getElementById('thumbnail-click-behavior');
     dropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
 
-    // Show the modal
-    document.getElementById('settings-modal').style.display = 'flex';
+    // Show the modal with animation
+    const modal = document.getElementById('settings-modal');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+    });
 }
 
 function closeSettingsModal() {
-    document.getElementById('settings-modal').style.display = 'none';
+    const modal = document.getElementById('settings-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 200);
 }
 
 async function saveSettings() {
@@ -897,6 +950,72 @@ async function saveSettings() {
         showNotification('Failed to save settings', 'error');
     }
 }
+
+window.refreshThumbnails = async function() {
+    if (!confirm('This will regenerate all thumbnails for the current project. This may take a while. Continue?')) {
+        return;
+    }
+
+    closeSettingsModal();
+    showNotification('Refreshing thumbnails...', 'info');
+
+    try {
+        const response = await fetch('/api/shots/refresh-thumbnails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification(result.message, 'success');
+            // Reload shots to show new thumbnails
+            loadShots();
+        } else {
+            showNotification(result.error || 'Failed to refresh thumbnails', 'error');
+        }
+    } catch (e) {
+        console.error('Failed to refresh thumbnails:', e);
+        showNotification('Failed to refresh thumbnails', 'error');
+    }
+};
+
+// ===== VIDEO PREVIEW ON HOVER =====
+
+window.showVideoPreview = function(element) {
+    const videoSrc = element.dataset.videoSrc;
+    if (!videoSrc) return;
+
+    // Create video preview container
+    const container = document.createElement('div');
+    container.className = 'video-preview-container';
+
+    const video = document.createElement('video');
+    video.className = 'video-preview';
+    video.src = `/api/shots/serve-video?path=${encodeURIComponent(videoSrc)}`;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+
+    container.appendChild(video);
+    element.appendChild(container);
+
+    // Start playing when video is ready
+    video.play().catch(err => {
+        console.warn('Video autoplay failed:', err);
+    });
+};
+
+window.hideVideoPreview = function(element) {
+    const container = element.querySelector('.video-preview-container');
+    if (container) {
+        const video = container.querySelector('video');
+        if (video) {
+            video.pause();
+            video.src = ''; // Stop loading
+        }
+        container.remove();
+    }
+};
 
 // Load settings on page load
 loadSettings();
@@ -1169,59 +1288,76 @@ async function revealRefImage(filename) {
     }
 }
 
-// Server Restart Functionality
-async function restartServer() {
-    try {
-        showNotification('Restarting server...', 'success');
-        closeSettingsModal();
+// ===== LAZY THUMBNAIL LOADING =====
 
-        // Call the restart endpoint
-        await fetch('/api/settings/restart', {
+// Track if batch loading is in progress
+let batchLoadingInProgress = false;
+
+async function loadAllMissingThumbnails() {
+    // Collect all thumbnails that need loading
+    const lazyThumbs = document.querySelectorAll('[data-lazy-thumb="true"]');
+
+    if (lazyThumbs.length === 0 || batchLoadingInProgress) {
+        return;
+    }
+
+    batchLoadingInProgress = true;
+
+    // Build batch request
+    const items = [];
+    const elementMap = new Map(); // key -> element
+
+    lazyThumbs.forEach(el => {
+        const shotName = el.dataset.shot;
+        const assetType = el.dataset.assetType;
+        const key = `${shotName}-${assetType}`;
+
+        items.push({ shot_name: shotName, asset_type: assetType });
+        elementMap.set(key, el);
+    });
+
+    try {
+        const response = await fetch('/api/shots/generate-thumbnails-batch', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
         });
 
-        // Wait longer for the server to fully shut down and start back up
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        const result = await response.json();
 
-        // Poll the server until it's back up
-        showNotification('Waiting for server to restart...', 'success');
-        await waitForServer();
+        if (result.success && result.thumbnails) {
+            // Apply all thumbnails
+            for (const [key, thumbnailUrl] of Object.entries(result.thumbnails)) {
+                const element = elementMap.get(key);
+                if (element && thumbnailUrl) {
+                    element.style.backgroundImage = `url('${thumbnailUrl}?v=${Date.now()}')`;
+                    element.style.backgroundSize = 'cover';
+                    element.style.backgroundPosition = 'center';
+                    element.classList.remove('loading');
+                    element.removeAttribute('data-lazy-thumb');
+                }
+            }
 
-        // Refresh the page once the server is back
-        showNotification('Server restarted! Refreshing...', 'success');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        window.location.reload();
+            // Remove loading state from any remaining elements (no thumbnail available)
+            lazyThumbs.forEach(el => {
+                if (el.hasAttribute('data-lazy-thumb')) {
+                    el.classList.remove('loading');
+                    el.removeAttribute('data-lazy-thumb');
+                }
+            });
+        }
     } catch (error) {
-        console.error('Restart failed:', error);
-        showNotification('Failed to restart server', 'error');
+        console.error('Failed to load thumbnails batch:', error);
+        // Remove loading state on error
+        lazyThumbs.forEach(el => el.classList.remove('loading'));
+    } finally {
+        batchLoadingInProgress = false;
     }
 }
 
-async function waitForServer(maxAttempts = 60) {
-    /**
-     * Poll the server until it responds, up to maxAttempts times.
-     * Each attempt waits 1 second between polls.
-     */
-    for (let i = 0; i < maxAttempts; i++) {
-        try {
-            const response = await fetch('/api/project/current', {
-                method: 'GET',
-                cache: 'no-cache'
-            });
-
-            // If we get any response, the server is back
-            if (response.ok || response.status === 400) {
-                return true;
-            }
-        } catch (error) {
-            // Server not ready yet, continue polling
-        }
-
-        // Wait 1 second before next attempt
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    throw new Error('Server did not restart in time');
+// Call this after rendering shots
+function startLazyThumbnailLoading() {
+    // Small delay to let the UI render first, then load all thumbnails
+    setTimeout(() => loadAllMissingThumbnails(), 50);
 }
 

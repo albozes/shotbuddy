@@ -4,7 +4,7 @@ This repository contains a Flask application for managing film shot assets. Use 
 
 ## Task Management
 
-- **Remove completed tasks from markdown files** - After completing a task documented in TODO.md or similar files, remove it from the document to keep the list current and actionable.
+- **Remove completed tasks from markdown files** - After completing a task documented in IMPROVEMENTS.md or similar files, remove it from the document to keep the list current and actionable. Don't bother marking them DONE or FIXED, just delete them after completion.
 - **Write implementation plans in the source document** - When asked to create an implementation plan, add it directly to the document where the task/feature is defined (e.g., add plans to FEATURES.md, not a separate file).
 
 ## Directory overview

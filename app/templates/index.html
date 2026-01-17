@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shotbuddy</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v={{ range(100000) | random }}">
 </head>
 <body>
     <div class="menu-bar">
@@ -53,7 +53,57 @@
 
         <div class="main-content-wrapper">
             <div class="container">
-                <div class="loading" id="loading">Loading shots...</div>
+                <!-- Skeleton loading state -->
+                <div class="skeleton-loading" id="skeleton-loading">
+                    <div class="shot-grid">
+                        <div class="grid-header">
+                            <div class="grid-header-cell">Shot Name</div>
+                            <div class="grid-header-cell">Image</div>
+                            <div class="grid-header-cell">Video</div>
+                            <div class="grid-header-cell">Notes</div>
+                            <div class="grid-header-cell collapse-header"></div>
+                        </div>
+                        <div class="skeleton-shots">
+                            <!-- Skeleton rows -->
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="loading" id="loading" style="display: none;">Loading shots...</div>
                 <div class="shot-grid" id="shot-grid" style="display: none;">
                     <div class="grid-header">
                         <div class="grid-header-cell">Shot Name</div>
@@ -168,8 +218,8 @@
                 </select>
             </div>
             <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid #404040;">
-                <button class="restart-button" onclick="restartServer()">Restart Server</button>
-                <p style="margin-top: 8px; color: #808080; font-size: 12px;">Restarts Shotbuddy and refreshes the page</p>
+                <button class="dark-button" style="width: 100%;" onclick="refreshThumbnails()">Refresh Thumbnails</button>
+                <p style="margin-top: 8px; color: #808080; font-size: 12px;">Regenerates all thumbnails for the current project</p>
             </div>
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>
@@ -181,7 +231,7 @@
     <footer class='app-footer'>
         Created by <a href="https://albertbozesan.com/">Albert Bozesan</a>
     </footer>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ range(100000) | random }}"></script>
 </body>
 </html>
     

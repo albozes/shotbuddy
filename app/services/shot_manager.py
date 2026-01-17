@@ -528,8 +528,14 @@ class ShotManager:
                     continue
         return sorted(set(versions))
 
-    def get_thumbnail_path(self, image_path, shot_name):
-        """Return (and create if necessary) the thumbnail for an image."""
+    def get_thumbnail_path(self, image_path, shot_name, generate=True):
+        """Return (and optionally create) the thumbnail for an image.
+
+        Args:
+            image_path: Path to the source image
+            shot_name: Name of the shot
+            generate: If True, generate thumbnail if missing. If False, return None for missing.
+        """
         if not image_path:
             return None
 
@@ -538,15 +544,26 @@ class ShotManager:
         thumb_filename = f"{project_name}_{shot_name}_{image_path.stem}_thumb.jpg"
         thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
 
-        if not thumb_path.exists():
-            result = create_image_thumbnail(image_path, thumb_path)
-            if not result:
-                return None
+        if thumb_path.exists():
+            return f"/static/thumbnails/{thumb_filename}"
+
+        if not generate:
+            return None
+
+        result = create_image_thumbnail(image_path, thumb_path)
+        if not result:
+            return None
 
         return f"/static/thumbnails/{thumb_filename}"
 
-    def get_video_thumbnail_path(self, video_path, shot_name):
-        """Return (and create if necessary) the thumbnail for a video."""
+    def get_video_thumbnail_path(self, video_path, shot_name, generate=True):
+        """Return (and optionally create) the thumbnail for a video.
+
+        Args:
+            video_path: Path to the source video
+            shot_name: Name of the shot
+            generate: If True, generate thumbnail if missing. If False, return None for missing.
+        """
         if not video_path:
             return None
 
@@ -555,10 +572,15 @@ class ShotManager:
         thumb_filename = f"{project_name}_{shot_name}_{video_path.stem}_vthumb.jpg"
         thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
 
-        if not thumb_path.exists():
-            result = create_video_thumbnail(video_path, thumb_path)
-            if not result:
-                return None
+        if thumb_path.exists():
+            return f"/static/thumbnails/{thumb_filename}"
+
+        if not generate:
+            return None
+
+        result = create_video_thumbnail(video_path, thumb_path)
+        if not result:
+            return None
 
         return f"/static/thumbnails/{thumb_filename}"
 

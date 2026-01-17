@@ -1,49 +1,12 @@
 # UI/UX Improvements
 
-This document tracks UI and design improvements for ShotBuddy.
+This document tracks pending UI and design improvements for ShotBuddy.
 
 ---
 
 ## Aesthetic Improvements
 
-### 1. Modern Button System
-
-**Current:** Buttons have inconsistent styling - dark (#3a3a3a), green (#00c851), and red mixed without clear hierarchy.
-
-**Improvement:** Implement a proper button hierarchy:
-- **Primary** (green): Main CTAs like "New Shot +", "Save"
-- **Secondary** (outlined): Supporting actions like "Cancel", "Open Folder"
-- **Ghost** (transparent): Tertiary actions and icon buttons
-- Add subtle hover/active state transitions (scale, shadow)
-
----
-
-### 2. Improved Modal Design
-
-**Current:** Modals are simple dark boxes with no visual depth or polish.
-
-**Improvement:**
-- Add subtle box-shadow for elevation
-- Use backdrop blur effect on overlay (`backdrop-filter: blur(4px)`)
-- Animate modal entrance (fade + slight scale up)
-- Better spacing and typography inside modals
-- Add subtle border or glow to distinguish from background
-
----
-
-### 3. Better Notification Toasts
-
-**Current:** Plain colored boxes that slide in with no icons.
-
-**Improvement:**
-- Add icons (checkmark for success, X for error, info circle for info)
-- Subtle entrance animation (slide + fade)
-- Optional action button for undo/retry
-- Progress bar showing auto-dismiss timing
-
----
-
-### 4. Card-Based Shot Layout
+### Card-Based Shot Layout
 
 **Current:** Rigid table-like grid that feels like a spreadsheet.
 
@@ -55,44 +18,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 5. Refined Color Palette
-
-**Current:** Good dark foundation but limited state colors.
-
-**Improvement:**
-- Add subtle color variations for interactive states
-- Info blue (#3b82f6) for informational elements
-- Warning amber (#f59e0b) for caution states
-- Better contrast ratios for accessibility
-- Subtle gradient accents for headers/CTAs (optional)
-
----
-
-### 6. Typography & Spacing Polish
-
-**Current:** Functional but tight spacing, especially in grid columns.
-
-**Improvement:**
-- Increase line-height for better readability
-- More generous padding in interactive elements
-- Consistent spacing scale (4px base: 4, 8, 12, 16, 24, 32...)
-- Slightly larger touch targets for buttons
-
----
-
-### 7. Sidebar Toggle Visibility
-
-**Current:** Toggle arrow is barely visible until hovered.
-
-**Improvement:**
-- Add subtle background/border to toggle button
-- Icon tooltip showing "Show/Hide References"
-- Animate arrow rotation smoothly
-- Consider collapsible header for sidebar
-
----
-
-### 8. Light Mode Option
+### Light Mode Option
 
 **Current:** Dark theme only.
 
@@ -105,7 +31,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ## Usability Improvements
 
-### 9. Inline Shot Name Editing
+### Inline Shot Name Editing
 
 **Current:** Uses browser `prompt()` dialog which feels outdated.
 
@@ -117,7 +43,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 10. Expandable Notes Section
+### Expandable Notes Section
 
 **Current:** Notes textarea has fixed max-height (120px), can feel cramped.
 
@@ -128,7 +54,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 11. Better Collapsed Shot UI
+### Better Collapsed Shot UI
 
 **Current:** Collapsed rows have tiny 11px gray text, not obviously clickable.
 
@@ -140,7 +66,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 12. Visual Drag Handles
+### Visual Drag Handles
 
 **Current:** No indication that shots can be reordered via drag-and-drop.
 
@@ -151,7 +77,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 13. Search & Filter
+### Search & Filter
 
 **Current:** No way to search or filter shots.
 
@@ -162,7 +88,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 14. Upload Progress Indicators
+### Upload Progress Indicators
 
 **Current:** No visual feedback during file uploads.
 
@@ -173,7 +99,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 15. Keyboard Shortcuts
+### Keyboard Shortcuts
 
 **Current:** No keyboard shortcuts documented or implemented.
 
@@ -186,7 +112,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 16. Better Version Badge Visibility
+### Better Version Badge Visibility
 
 **Current:** Small 11px badges positioned on thumbnails, hard to see on dark images.
 
@@ -197,7 +123,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 17. Context Menus
+### Context Menus
 
 **Current:** No right-click context menus.
 
@@ -208,7 +134,7 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ---
 
-### 18. Responsive Design
+### Responsive Design
 
 **Current:** Fixed widths that may overflow on smaller screens.
 
@@ -221,14 +147,8 @@ This document tracks UI and design improvements for ShotBuddy.
 
 ## Implementation Priority
 
-| Priority | Items | Impact |
-|----------|-------|--------|
-| High | 9, 10, 11, 14 | Core usability wins |
-| Medium | 1, 2, 3, 4, 12, 13 | Visual polish + features |
-| Low | 5, 6, 7, 8, 15, 16, 17, 18 | Nice-to-have refinements |
-
----
-
-## Notes
-
-Previous code improvements (duplicate logic, path traversal security, error handling, etc.) have all been completed and removed from this document.
+| Priority | Items |
+|----------|-------|
+| High | Inline editing, Expandable notes, Collapsed UI, Upload progress |
+| Medium | Card layout, Drag handles, Search & filter |
+| Low | Light mode, Keyboard shortcuts, Version badges, Context menus, Responsive |
