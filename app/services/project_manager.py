@@ -92,6 +92,10 @@ class ProjectManager:
             self.projects['recent_projects'] = self.projects['recent_projects'][:5]
         self.save_projects()
 
+    def clear_current_project(self):
+        self.projects['current_project'] = None
+        self.save_projects()
+
     def get_current_project(self):
         project_path = self.projects.get('current_project')
         if not project_path:

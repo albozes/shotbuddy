@@ -116,6 +116,17 @@ def open_project():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@project_bp.route("/api/project/close", methods=["POST"])
+def close_project():
+    try:
+        project_manager = current_app.config['PROJECT_MANAGER']
+        project_manager.clear_current_project()
+        clear_shot_manager_cache()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @project_bp.route("/api/project/create", methods=["POST"])
 def create_project():
     try:

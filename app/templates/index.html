@@ -39,6 +39,7 @@
                 />
                 <button class="green-button" onclick="loadProjectFromManualPath()">Open</button>
                 <button class="dark-button" onclick="openCreateProjectModal()">Create New</button>
+                <button class="dark-button" id="close-project-btn" onclick="closeProject()" style="display:none;">Close</button>
             </div>
             <div class="recent-projects" id="recent-projects"></div>
         </div>
@@ -49,7 +50,7 @@
         <div class="setup-card" id="setup-card-no-project">
             <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
             <p style="margin-bottom: 30px; color: #b5b5b5;">No project is currently open.</p>
-            <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Click the project name above to open or create a project.</p>
+            <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Click the project dropdown above to open or create a project.</p>
         </div>
     </div>
 

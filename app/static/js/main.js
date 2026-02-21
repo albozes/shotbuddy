@@ -20,6 +20,24 @@
             document.querySelector('.app-bar').classList.remove('drawer-open');
         }
 
+        async function closeProject() {
+            try {
+                const response = await fetch('/api/project/close', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    currentProject = null;
+                    shots = [];
+                    showSetupScreen();
+                    showNotification('Project closed');
+                } else {
+                    showNotification(result.error || 'Failed to close project', 'error');
+                }
+            } catch (error) {
+                console.error('Error closing project:', error);
+                showNotification('Unexpected error closing project', 'error');
+            }
+        }
+
         async function loadRecentProjects() {
             try {
                 const response = await fetch('/api/project/recent');
@@ -223,6 +241,7 @@
             document.getElementById('project-toggle-name').textContent = 'Open a Project';
             document.querySelector('.app-bar').classList.add('drawer-open');
             document.getElementById('app-bar-controls').style.display = 'none';
+            document.getElementById('close-project-btn').style.display = 'none';
             loadRecentProjects();
             activateOnboarding();
             setTimeout(() => checkOnboardingTips(), 600);
@@ -237,6 +256,7 @@
             // Update app bar
             document.getElementById('project-toggle-name').textContent = currentProject.name;
             document.getElementById('app-bar-controls').style.display = '';
+            document.getElementById('close-project-btn').style.display = '';
             closeProjectDrawer();
             const input = document.getElementById('manual-path-input');
             if (input && currentProject && currentProject.path) {
