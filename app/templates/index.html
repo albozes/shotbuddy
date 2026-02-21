@@ -267,6 +267,27 @@
                     <option value="version_folder">the latest version in the Shot's folder</option>
                 </select>
             </div>
+            <div style="margin-bottom: 20px;">
+                <label for="file-naming-pattern" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
+                    File Naming Pattern:
+                </label>
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <button type="button" class="dark-button" style="font-size: 12px; padding: 4px 8px;" onclick="insertNamingVar('{project}')">{project}</button>
+                    <button type="button" class="dark-button" style="font-size: 12px; padding: 4px 8px;" onclick="insertNamingVar('{shot}')">{shot}</button>
+                    <button type="button" class="dark-button" style="font-size: 12px; padding: 4px 8px;" onclick="insertNamingVar('{date}')">{date}</button>
+                </div>
+                <input type="text" id="file-naming-pattern" class="settings-dropdown"
+                       style="width: 100%; box-sizing: border-box;"
+                       placeholder="{shot}" oninput="updateNamingPreview()">
+                <p id="naming-preview" style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">
+                    Preview: SH010_v001.jpg
+                </p>
+                <p style="margin-top: 4px; color: var(--color-text-tertiary); font-size: 11px;">
+                    Version and extension are added automatically. {shot} is required.
+                </p>
+                <button type="button" class="dark-button" style="width: 100%; margin-top: 12px; color: var(--color-error);"
+                        onclick="confirmApplyNaming()">Apply to Existing Files</button>
+            </div>
             <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--color-border);">
                 <button class="dark-button" style="width: 100%;" onclick="refreshThumbnails()">Refresh Thumbnails</button>
                 <p style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">Regenerates all thumbnails for the current project</p>
@@ -278,6 +299,25 @@
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>
                 <button class="dark-button" onclick="closeSettingsModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Files Confirmation Modal -->
+    <div id="rename-files-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: var(--color-error);">Rename Existing Files</h3>
+            <p style="margin-bottom: 10px; color: var(--color-text-secondary); line-height: 1.5;">
+                This will rename <strong id="rename-file-count">0</strong> files across
+                <strong id="rename-shot-count">0</strong> shots to match the current naming pattern.
+            </p>
+            <p style="margin-bottom: 20px; color: var(--color-error); font-size: 13px; line-height: 1.5;">
+                This action cannot be undone. External references to these files (compositing projects,
+                edit timelines, etc.) will break.
+            </p>
+            <div class="modal-buttons">
+                <button class="dark-button" style="color: var(--color-error);" onclick="executeApplyNaming()">Rename Files</button>
+                <button class="dark-button" onclick="closeRenameModal()">Cancel</button>
             </div>
         </div>
     </div>

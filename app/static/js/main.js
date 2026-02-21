@@ -1162,6 +1162,10 @@ async function openSettingsModal() {
     const themeDropdown = document.getElementById('color-theme');
     themeDropdown.value = currentSettings.color_theme || 'default';
 
+    const namingInput = document.getElementById('file-naming-pattern');
+    namingInput.value = currentSettings.file_naming_pattern || '{shot}';
+    updateNamingPreview();
+
     // Show the modal with animation
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';
@@ -1181,13 +1185,119 @@ function closeSettingsModal() {
     }, 200);
 }
 
+function insertNamingVar(varName) {
+    const input = document.getElementById('file-naming-pattern');
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const value = input.value;
+    input.value = value.substring(0, start) + varName + value.substring(end);
+    input.selectionStart = input.selectionEnd = start + varName.length;
+    input.focus();
+    updateNamingPreview();
+}
+
+function updateNamingPreview() {
+    const input = document.getElementById('file-naming-pattern');
+    const preview = document.getElementById('naming-preview');
+    const pattern = input.value.trim() || '{shot}';
+    const projectName = currentProject ? currentProject.name : 'ProjectName';
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const resolved = pattern
+        .replace(/\{project\}/g, projectName)
+        .replace(/\{shot\}/g, 'SH010')
+        .replace(/\{date\}/g, today);
+    preview.textContent = 'Preview: ' + resolved + '_v001.jpg';
+}
+
+function _getNamingPatternFromInput() {
+    const input = document.getElementById('file-naming-pattern');
+    const pattern = input.value.trim() || '{shot}';
+    if (!pattern.includes('{shot}')) {
+        showNotification('Naming pattern must include {shot}', 'error');
+        return null;
+    }
+    return pattern;
+}
+
+async function confirmApplyNaming() {
+    const pattern = _getNamingPatternFromInput();
+    if (!pattern) return;
+    try {
+        const response = await fetch('/api/settings/rename-files-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pattern })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            showNotification(result.error || 'Failed to check files', 'error');
+            return;
+        }
+        if (result.file_count === 0) {
+            showNotification('All files already match this naming pattern', 'info');
+            return;
+        }
+        document.getElementById('rename-file-count').textContent = result.file_count;
+        document.getElementById('rename-shot-count').textContent = result.shot_count;
+        const modal = document.getElementById('rename-files-modal');
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => modal.classList.add('show'));
+    } catch (e) {
+        console.error('Failed to preview rename:', e);
+        showNotification('Failed to check files', 'error');
+    }
+}
+
+function closeRenameModal() {
+    const modal = document.getElementById('rename-files-modal');
+    modal.classList.remove('show');
+    setTimeout(() => { modal.style.display = 'none'; }, 200);
+}
+
+async function executeApplyNaming() {
+    const pattern = _getNamingPatternFromInput();
+    if (!pattern) return;
+    closeRenameModal();
+    showNotification('Renaming files...', 'info');
+    try {
+        const response = await fetch('/api/settings/apply-naming', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pattern })
+        });
+        const result = await response.json();
+        if (result.success) {
+            const msg = `Renamed ${result.renamed} files` +
+                (result.errors > 0 ? ` (${result.errors} errors)` : '');
+            showNotification(msg, result.errors > 0 ? 'warning' : 'success');
+            currentSettings.file_naming_pattern = pattern;
+            closeSettingsModal();
+            if (typeof loadShots === 'function') loadShots();
+        } else {
+            showNotification(result.error || 'Failed to rename files', 'error');
+        }
+    } catch (e) {
+        console.error('Failed to apply naming:', e);
+        showNotification('Failed to rename files', 'error');
+    }
+}
+
 async function saveSettings() {
     const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
     const themeDropdown = document.getElementById('color-theme');
+    const namingInput = document.getElementById('file-naming-pattern');
+    const namingPattern = namingInput.value.trim() || '{shot}';
+
+    if (!namingPattern.includes('{shot}')) {
+        showNotification('Naming pattern must include {shot}', 'error');
+        return;
+    }
+
     const newSettings = {
         thumbnail_click_behavior: thumbnailDropdown.value,
         color_theme: themeDropdown.value,
-        color_mode: currentSettings.color_mode || 'dark'
+        color_mode: currentSettings.color_mode || 'dark',
+        file_naming_pattern: namingPattern
     };
 
     try {

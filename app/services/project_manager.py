@@ -18,7 +18,8 @@ class ProjectManager:
             'settings': {
                 'thumbnail_click_behavior': 'latest_folder',  # 'latest_folder' or 'version_folder'
                 'color_theme': 'default',
-                'color_mode': 'dark'  # 'dark' or 'light'
+                'color_mode': 'dark',  # 'dark' or 'light'
+                'file_naming_pattern': '{shot}'  # Template for file naming
             }
         }
         self.ensure_config_dir()
@@ -51,6 +52,8 @@ class ProjectManager:
                         self.projects['settings']['color_theme'] = 'default'
                     if 'color_mode' not in self.projects['settings']:
                         self.projects['settings']['color_mode'] = 'dark'
+                    if 'file_naming_pattern' not in self.projects['settings']:
+                        self.projects['settings']['file_naming_pattern'] = '{shot}'
             except Exception as e:
                 logger.warning("Failed to load projects.json: %s", e)
         logger.info("Loaded current project: %s", self.projects.get('current_project'))
@@ -177,13 +180,14 @@ class ProjectManager:
             'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
             'color_theme': global_settings.get('color_theme', 'default'),
             'color_mode': global_settings.get('color_mode', 'dark'),
+            'file_naming_pattern': global_settings.get('file_naming_pattern', '{shot}'),
             'collapsed_shots': project_settings.get('collapsed_shots', [])
         }
 
     def update_settings(self, settings_dict):
         """Update user settings and save (handles both global and project-specific settings)."""
         # Separate global settings from project-specific settings
-        global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode']
+        global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode', 'file_naming_pattern']
         project_settings_keys = ['collapsed_shots']
 
         # Update global settings

@@ -101,7 +101,10 @@ def upload_file(project):
         if file.filename == '':
             return error_response("No file selected")
 
-        file_handler = FileHandler(project['path'])
+        project_manager = current_app.config['PROJECT_MANAGER']
+        settings = project_manager.get_settings()
+        naming_pattern = settings.get('file_naming_pattern', '{shot}')
+        file_handler = FileHandler(project['path'], naming_pattern=naming_pattern)
         result = file_handler.save_file(file, shot_name, file_type)
 
         return jsonify({"success": True, "data": result})
@@ -371,8 +374,11 @@ def refresh_thumbnails(project):
 
         logger.info("Deleted %d thumbnails for project %s", deleted_count, project_name)
 
-        # Regenerate by loading all shots (which triggers thumbnail creation)
+        # Sync latest folders first so deleted/missing files are rebuilt from WIP
         shot_manager = get_shot_manager(project["path"])
+        shot_manager.sync_latest_folders()
+
+        # Regenerate by loading all shots (which triggers thumbnail creation)
         shots = shot_manager.get_shots()
 
         return jsonify({

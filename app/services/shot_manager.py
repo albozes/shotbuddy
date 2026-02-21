@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 # three-digit number (e.g. ``SH001_050``).  Deeper nesting with multiple
 # underscores is not allowed.
 SHOT_NAME_RE = re.compile(r"^SH\d{3}(?:_\d{3})?$")
+VERSION_RE = re.compile(r'_v(\d{3})')
 
 # Shot numbering constants
 SHOT_NUMBER_INCREMENT = 10  # Shots are numbered in increments of 10 (SH010, SH020, etc.)
@@ -448,28 +449,35 @@ class ShotManager:
 
 
     def _get_latest_asset(self, final_dir, wip_dir, shot_name, extensions):
-        """Helper for finding the latest final or highest versioned WIP asset."""
+        """Helper for finding the latest final or highest versioned WIP asset.
+
+        Searches for files containing ``shot_name`` to support custom naming
+        patterns.
+        """
         latest_final = None
         if final_dir.exists():
             for ext in extensions:
+                # Try exact match first (default pattern), then broad match
                 candidate = final_dir / f'{shot_name}{ext}'
                 if candidate.exists():
                     latest_final = str(candidate)
+                    break
+                matches = list(final_dir.glob(f'*{shot_name}*{ext}'))
+                if matches:
+                    latest_final = str(matches[0])
                     break
 
         version = 0
         if wip_dir.exists():
             wip_files = []
             for ext in extensions:
-                wip_files.extend(wip_dir.glob(f'{shot_name}_v*{ext}'))
+                wip_files.extend(wip_dir.glob(f'*_v*{ext}'))
 
             versions = []
             for f in wip_files:
-                try:
-                    version_str = f.stem.split('_v')[1]
-                    versions.append(int(version_str))
-                except (IndexError, ValueError):
-                    continue
+                m = VERSION_RE.search(f.stem)
+                if m:
+                    versions.append(int(m.group(1)))
 
             if versions:
                 version = max(versions)
@@ -509,15 +517,15 @@ class ShotManager:
                 if not wip_subdir.exists():
                     continue
 
-                # Find the highest versioned file
+                # Find the highest versioned file (any naming pattern)
                 best_version = 0
                 best_file = None
                 for ext in extensions:
-                    for f in wip_subdir.glob(f'{shot_name}_v*{ext}'):
-                        try:
-                            ver = int(f.stem.split('_v')[-1])
-                        except (IndexError, ValueError):
+                    for f in wip_subdir.glob(f'*_v*{ext}'):
+                        m = VERSION_RE.search(f.stem)
+                        if not m:
                             continue
+                        ver = int(m.group(1))
                         if ver > best_version:
                             best_version = ver
                             best_file = f
@@ -525,12 +533,16 @@ class ShotManager:
                 if best_file is None:
                     continue
 
-                # Find existing latest file
+                # Find existing latest file (any naming pattern)
                 existing_latest = None
                 for ext in extensions:
                     candidate = latest_dir / f'{shot_name}{ext}'
                     if candidate.exists():
                         existing_latest = candidate
+                        break
+                    matches = list(latest_dir.glob(f'*{shot_name}*{ext}'))
+                    if matches:
+                        existing_latest = matches[0]
                         break
 
                 # Determine if update is needed
@@ -551,11 +563,13 @@ class ShotManager:
                     continue
 
                 try:
-                    for ext in extensions:
-                        old = latest_dir / f'{shot_name}{ext}'
-                        if old.exists():
+                    # Remove old latest files for this shot (any naming pattern)
+                    for old in latest_dir.glob(f'*{shot_name}*'):
+                        if old.is_file():
                             old.unlink()
-                    dest = latest_dir / f'{shot_name}{best_file.suffix}'
+                    # Derive latest filename from WIP file by stripping version
+                    dest_stem = VERSION_RE.sub('', best_file.stem)
+                    dest = latest_dir / f'{dest_stem}{best_file.suffix}'
                     shutil.copy2(str(best_file), str(dest))
                     stats['synced'] += 1
                     logger.info("Sync: updated %s in %s from v%03d",
@@ -571,7 +585,8 @@ class ShotManager:
             for latest_file in latest_dir.iterdir():
                 if not latest_file.is_file():
                     continue
-                if latest_file.stem not in wip_shot_names:
+                # Check if any known shot name appears in the filename
+                if not any(sn in latest_file.stem for sn in wip_shot_names):
                     try:
                         latest_file.unlink()
                         stats['removed'] += 1
