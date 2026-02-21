@@ -242,7 +242,7 @@ class ShotManager:
             raise ValueError("Cannot create more shots: shot number would exceed 999. Consider splitting your project into individual sequences.")
         return next_num
 
-    def get_shots(self):
+    def get_shots(self, generate=True):
         """Get all shots in the project."""
         if not self.wip_dir.exists():
             return []
@@ -250,7 +250,7 @@ class ShotManager:
         shots = []
         for shot_dir in sorted(self.wip_dir.iterdir()):
             if shot_dir.is_dir() and shot_dir.name.startswith('SH'):
-                shots.append(self.get_shot_info(shot_dir.name))
+                shots.append(self.get_shot_info(shot_dir.name, generate=generate))
         return shots
 
     def create_shot_between(self, after_shot=None):
@@ -354,13 +354,14 @@ class ShotManager:
                 logger.warning("Failed to read notes file %s: %s", notes_file, e)
         return ''
 
-    def _get_asset_info(self, shot_name, shot_dir, asset_type):
+    def _get_asset_info(self, shot_name, shot_dir, asset_type, generate=True):
         """Get info for an image or video asset.
 
         Args:
             shot_name: Name of the shot
             shot_dir: Path to the shot directory
             asset_type: AssetType.IMAGE or AssetType.VIDEO
+            generate: If True, generate thumbnails if missing
 
         Returns:
             dict with file, version, thumbnail, and prompt keys
@@ -385,7 +386,7 @@ class ShotManager:
         if version > 0:
             prompt = self.load_prompt(shot_name, asset_type, version)
 
-        thumbnail = get_thumb(file_path, shot_name) if file_path else None
+        thumbnail = get_thumb(file_path, shot_name, generate=generate) if file_path else None
 
         return {
             'file': file_path,
@@ -394,7 +395,7 @@ class ShotManager:
             'prompt': prompt,
         }
 
-    def _get_lipsync_info(self, shot_name, shot_dir):
+    def _get_lipsync_info(self, shot_name, shot_dir, generate=True):
         """Get info for all lipsync assets (driver, target, result)."""
         lipsync_dir = shot_dir / 'lipsync'
         lipsync = {}
@@ -412,7 +413,7 @@ class ShotManager:
 
             thumbnail = None
             if file_path:
-                thumbnail = self.get_video_thumbnail_path(file_path, f"{shot_name}_{part}")
+                thumbnail = self.get_video_thumbnail_path(file_path, f"{shot_name}_{part}", generate=generate)
 
             lipsync[part] = {
                 'file': file_path,
@@ -423,15 +424,15 @@ class ShotManager:
 
         return lipsync
 
-    def get_shot_info(self, shot_name):
+    def get_shot_info(self, shot_name, generate=True):
         """Get information about a specific shot."""
         validate_shot_name(shot_name)
         shot_dir = self.wip_dir / shot_name
 
         notes = self._load_shot_notes(shot_dir)
-        image_info = self._get_asset_info(shot_name, shot_dir, AssetType.IMAGE)
-        video_info = self._get_asset_info(shot_name, shot_dir, AssetType.VIDEO)
-        lipsync_info = self._get_lipsync_info(shot_name, shot_dir)
+        image_info = self._get_asset_info(shot_name, shot_dir, AssetType.IMAGE, generate=generate)
+        video_info = self._get_asset_info(shot_name, shot_dir, AssetType.VIDEO, generate=generate)
+        lipsync_info = self._get_lipsync_info(shot_name, shot_dir, generate=generate)
 
         logger.debug("%s -> Image thumbnail: %s", shot_name, image_info['thumbnail'])
         logger.debug("%s -> Video thumbnail: %s", shot_name, video_info['thumbnail'])

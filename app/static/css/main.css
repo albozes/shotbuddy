@@ -971,6 +971,12 @@
         /* Placeholder for loading thumbnails */
         .preview-thumbnail.loading {
             background: var(--color-bg-card);
+            animation: thumb-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes thumb-pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
         }
 
         .video-thumbnail {

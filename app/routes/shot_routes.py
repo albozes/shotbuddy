@@ -68,7 +68,7 @@ def _get_file_for_version_folder(project_path, shot_name, asset_type, version):
 def get_shots(project):
     try:
         shot_manager = get_shot_manager(project["path"])
-        shots = shot_manager.get_shots()
+        shots = shot_manager.get_shots(generate=False)
         return jsonify({"success": True, "data": shots})
     except Exception as e:
         return error_response(str(e), 500)

@@ -207,6 +207,7 @@
                         document.getElementById('skeleton-loading').style.display = 'none';
                         document.getElementById('shot-grid').style.display = 'block';
                         restoreScroll();
+                        startLazyThumbnailLoading();
 
                         // Trigger upload success animation if pending
                         if (window.pendingUploadAnimation) {
@@ -392,6 +393,7 @@
 
             if (hasFile) {
                 const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
+                const needsLazyLoad = file.version > 0 && !file.thumbnail;
                 const thumbnailStyle = thumbnailUrl ?
                     `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
                     'background: #404040;';
@@ -417,8 +419,9 @@
                          ondrop="handleDrop(event, '${shot.name}', '${type}')"
                          ondragleave="handleDragLeave(event)">
                         <div class="file-preview">
-                            <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}"
+                            <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}${needsLazyLoad ? ' loading' : ''}"
                                 style="${thumbnailStyle}"
+                                ${needsLazyLoad ? `data-lazy-thumb="true" data-shot="${shot.name}" data-asset-type="${type}"` : ''}
                                 ${videoAttrs}
                                 onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
@@ -461,13 +464,14 @@
                 const label = part.charAt(0).toUpperCase() + part.slice(1);
                 if (hasFile) {
                     const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
+                    const needsLazyLoad = file.version > 0 && !file.thumbnail;
                     const thumbnailStyle = thumbnailUrl ?
                         `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
                         'background: #404040;';
                     html += `
                         <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
                             <div class="file-preview lipsync-preview">
-                                <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
+                                <div class="preview-thumbnail lipsync-thumbnail${needsLazyLoad ? ' loading' : ''}" data-label="${label}" style="${thumbnailStyle}" ${needsLazyLoad ? `data-lazy-thumb="true" data-shot="${shot.name}" data-asset-type="${part}"` : ''} onclick="revealFile('${file.file}')"></div>
                                 <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
                                 <button class="prompt-button" title="View and edit prompt"
                                         data-shot="${shot.name}"
