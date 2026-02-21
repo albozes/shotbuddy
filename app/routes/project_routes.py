@@ -104,6 +104,13 @@ def open_project():
         )
         project_manager.save_projects()
 
+        # Sync latest folders to ensure consistency with WIP
+        try:
+            shot_manager = get_shot_manager(path_str)
+            shot_manager.sync_latest_folders()
+        except Exception as e:
+            logger.warning("Failed to sync latest folders on project open: %s", e)
+
         return jsonify({"success": True, "data": project_info})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

@@ -476,6 +476,117 @@ class ShotManager:
 
         return latest_final, version
 
+    def sync_latest_folders(self):
+        """Ensure latest_images/ and latest_videos/ match the highest WIP versions.
+
+        For each shot in wip/, finds the highest versioned image and video,
+        then verifies the corresponding file in the latest folder is correct.
+        Also removes orphaned latest files for shots that no longer exist.
+
+        Returns:
+            dict with 'synced', 'removed', 'skipped', and 'errors' counts.
+        """
+        import shutil
+
+        stats = {'synced': 0, 'removed': 0, 'skipped': 0, 'errors': 0}
+        wip_shot_names = set()
+
+        if not self.wip_dir.exists():
+            return stats
+
+        for shot_dir in self.wip_dir.iterdir():
+            if not shot_dir.is_dir() or not shot_dir.name.startswith('SH'):
+                continue
+
+            shot_name = shot_dir.name
+            wip_shot_names.add(shot_name)
+
+            for subdir, extensions, latest_dir in [
+                ('images', ALLOWED_IMAGE_EXTENSIONS, self.latest_images_dir),
+                ('videos', ALLOWED_VIDEO_EXTENSIONS, self.latest_videos_dir),
+            ]:
+                wip_subdir = shot_dir / subdir
+                if not wip_subdir.exists():
+                    continue
+
+                # Find the highest versioned file
+                best_version = 0
+                best_file = None
+                for ext in extensions:
+                    for f in wip_subdir.glob(f'{shot_name}_v*{ext}'):
+                        try:
+                            ver = int(f.stem.split('_v')[-1])
+                        except (IndexError, ValueError):
+                            continue
+                        if ver > best_version:
+                            best_version = ver
+                            best_file = f
+
+                if best_file is None:
+                    continue
+
+                # Find existing latest file
+                existing_latest = None
+                for ext in extensions:
+                    candidate = latest_dir / f'{shot_name}{ext}'
+                    if candidate.exists():
+                        existing_latest = candidate
+                        break
+
+                # Determine if update is needed
+                needs_update = False
+                if existing_latest is None:
+                    needs_update = True
+                elif existing_latest.suffix != best_file.suffix:
+                    needs_update = True
+                else:
+                    try:
+                        if existing_latest.stat().st_size != best_file.stat().st_size:
+                            needs_update = True
+                    except OSError:
+                        needs_update = True
+
+                if not needs_update:
+                    stats['skipped'] += 1
+                    continue
+
+                try:
+                    for ext in extensions:
+                        old = latest_dir / f'{shot_name}{ext}'
+                        if old.exists():
+                            old.unlink()
+                    dest = latest_dir / f'{shot_name}{best_file.suffix}'
+                    shutil.copy2(str(best_file), str(dest))
+                    stats['synced'] += 1
+                    logger.info("Sync: updated %s in %s from v%03d",
+                                shot_name, latest_dir.name, best_version)
+                except OSError as e:
+                    stats['errors'] += 1
+                    logger.error("Sync: failed to update %s: %s", shot_name, e)
+
+        # Remove orphaned latest files
+        for latest_dir in [self.latest_images_dir, self.latest_videos_dir]:
+            if not latest_dir.exists():
+                continue
+            for latest_file in latest_dir.iterdir():
+                if not latest_file.is_file():
+                    continue
+                if latest_file.stem not in wip_shot_names:
+                    try:
+                        latest_file.unlink()
+                        stats['removed'] += 1
+                        logger.info("Sync: removed orphaned %s", latest_file.name)
+                    except OSError as e:
+                        stats['errors'] += 1
+                        logger.error("Sync: failed to remove %s: %s",
+                                     latest_file.name, e)
+
+        if stats['synced'] or stats['removed']:
+            logger.info("Sync complete: %d synced, %d removed, %d skipped, %d errors",
+                        stats['synced'], stats['removed'],
+                        stats['skipped'], stats['errors'])
+        return stats
+
     def save_shot_notes(self, shot_name, notes):
         """Save notes for a shot."""
         validate_shot_name(shot_name)

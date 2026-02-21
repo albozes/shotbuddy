@@ -384,6 +384,23 @@ def refresh_thumbnails(project):
         return error_response(str(e), 500)
 
 
+@shot_bp.route("/sync-latest", methods=["POST"])
+@require_project
+def sync_latest(project):
+    """Sync latest_images/ and latest_videos/ with the highest WIP versions."""
+    try:
+        shot_manager = get_shot_manager(project["path"])
+        stats = shot_manager.sync_latest_folders()
+        return jsonify({
+            "success": True,
+            "data": stats,
+            "message": f"Synced {stats['synced']}, removed {stats['removed']} orphans, {stats['errors']} errors"
+        })
+    except Exception as e:
+        logger.error("Error syncing latest folders: %s", e)
+        return error_response(str(e), 500)
+
+
 @shot_bp.route("/generate-thumbnail", methods=["POST"])
 @require_project
 def generate_thumbnail(project):
