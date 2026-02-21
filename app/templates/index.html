@@ -157,6 +157,18 @@
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
+    <!-- Onboarding Tips -->
+    <div id="onboarding-tip" class="onboarding-tip" style="display: none;">
+        <div class="onboarding-tip-arrow"></div>
+        <div class="onboarding-tip-content">
+            <p class="onboarding-tip-text" id="onboarding-tip-text"></p>
+            <div class="onboarding-tip-actions">
+                <button class="btn btn-sm btn-primary" onclick="dismissOnboardingTip()">Got it</button>
+                <button class="onboarding-skip-all" onclick="skipAllOnboardingTips()">Skip all</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Create Project Modal -->
     <div id="create-project-modal" class="modal">
         <div class="modal-content">
@@ -238,6 +250,10 @@
             <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid #404040;">
                 <button class="dark-button" style="width: 100%;" onclick="refreshThumbnails()">Refresh Thumbnails</button>
                 <p style="margin-top: 8px; color: #808080; font-size: 12px;">Regenerates all thumbnails for the current project</p>
+            </div>
+            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid #404040;">
+                <button class="dark-button" style="width: 100%;" onclick="resetOnboarding()">Reset Quick-Start Tips</button>
+                <p style="margin-top: 8px; color: #808080; font-size: 12px;">Show the quick-start tips again</p>
             </div>
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>

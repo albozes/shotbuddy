@@ -224,6 +224,8 @@
             document.querySelector('.app-bar').classList.add('drawer-open');
             document.getElementById('app-bar-controls').style.display = 'none';
             loadRecentProjects();
+            activateOnboarding();
+            setTimeout(() => checkOnboardingTips(), 600);
         }
 
         function showMainInterface() {
@@ -240,6 +242,7 @@
             if (input && currentProject && currentProject.path) {
                 input.value = currentProject.path;
             }
+            deactivateOnboarding();
         }
 
         async function loadShots(rowId = null) {
@@ -268,6 +271,7 @@
                         document.getElementById('shot-grid').style.display = 'block';
                         restoreScroll();
                         startLazyThumbnailLoading();
+                        checkOnboardingTips();
 
                         // Trigger upload success animation if pending
                         if (window.pendingUploadAnimation) {
@@ -1681,4 +1685,293 @@ function startLazyThumbnailLoading() {
     // Small delay to let the UI render first, then load all thumbnails
     setTimeout(() => loadAllMissingThumbnails(), 50);
 }
+
+// ===== ONBOARDING TIPS =====
+
+const ONBOARDING_TIPS = [
+    {
+        id: 'tip-project',
+        text: 'Start by opening an existing project or creating a new one. Enter a folder path and hit Open.',
+        target: '#project-toggle',
+        placement: 'bottom',
+        condition: () => !currentProject,
+    },
+    {
+        id: 'tip-create-shot',
+        text: 'Create your first shot to get started. You can also drag & drop a file anywhere here.',
+        target: '.empty-shots-state .btn-primary',
+        placement: 'bottom',
+        condition: () => currentProject && shots.length === 0,
+    },
+    {
+        id: 'tip-upload-asset',
+        text: 'Drag an image or video onto these areas, or click to browse. Each shot has an image and video slot.',
+        target: '.shot-row .drop-zone.empty',
+        placement: 'bottom',
+        condition: () => shots.length > 0 && document.querySelector('.shot-row .drop-zone.empty'),
+    },
+    {
+        id: 'tip-notes',
+        text: 'Add production notes for each shot. Notes are saved automatically when you click away.',
+        target: '.shot-row .notes-input',
+        placement: 'left',
+        condition: () => shots.length > 0 && document.querySelector('.shot-row .notes-input'),
+    },
+    {
+        id: 'tip-locate',
+        text: 'Click any thumbnail to open the file in your file browser.',
+        target: '.preview-thumbnail',
+        placement: 'bottom',
+        condition: () => document.querySelector('.preview-thumbnail'),
+    },
+    {
+        id: 'tip-insert-between',
+        text: 'Hover below or above shots to reveal the + button. Click it to insert a new shot at that position.',
+        target: '.drop-between-zone',
+        placement: 'bottom',
+        condition: () => shots.length >= 1 && document.querySelector('.drop-between-zone'),
+    },
+    {
+        id: 'tip-prompt',
+        text: 'Click the P button on any asset to write or view prompts for that asset.',
+        target: '.prompt-button',
+        placement: 'top',
+        condition: () => document.querySelector('.prompt-button'),
+    },
+    {
+        id: 'tip-reference',
+        text: 'Open the reference panel to pin inspiration images. Drag images here or click + Add Image.',
+        target: '#sidebar-toggle',
+        placement: 'left',
+        condition: () => currentProject !== null,
+    },
+];
+
+const ONBOARDING_STORAGE_KEY = 'shotbuddy_onboarding';
+
+function getOnboardingState() {
+    try {
+        const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+        return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function activateOnboarding() {
+    if (!getOnboardingState()) {
+        saveOnboardingState({ activated: true, dismissed: [] });
+    }
+}
+
+function deactivateOnboarding() {
+    if (!getOnboardingState()) {
+        saveOnboardingState({ activated: false, dismissed: [] });
+    }
+}
+
+function saveOnboardingState(state) {
+    try {
+        localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn('Could not save onboarding state:', e);
+    }
+}
+
+function getNextTip() {
+    const state = getOnboardingState();
+    if (!state || !state.activated) return null;
+    for (const tip of ONBOARDING_TIPS) {
+        if (state.dismissed.includes(tip.id)) continue;
+        if (tip.condition && !tip.condition()) continue;
+        const targetEl = document.querySelector(tip.target);
+        if (!targetEl) continue;
+        if (targetEl.offsetParent === null && getComputedStyle(targetEl).position !== 'fixed') continue;
+        return tip;
+    }
+    return null;
+}
+
+function showOnboardingTip(tip) {
+    const tipEl = document.getElementById('onboarding-tip');
+    const textEl = document.getElementById('onboarding-tip-text');
+    const stepEl = document.getElementById('onboarding-tip-step');
+    const targetEl = document.querySelector(tip.target);
+
+    if (!tipEl || !textEl || !targetEl) return;
+
+    // Remove previous highlight
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+
+    // Set content
+    textEl.textContent = tip.text;
+
+    // Store current tip id
+    tipEl.dataset.tipId = tip.id;
+    tipEl.dataset.placement = tip.placement;
+
+    // Add highlight to target
+    targetEl.classList.add('onboarding-highlight');
+
+    // Position the tip
+    tipEl.style.display = 'block';
+    positionTip(tipEl, targetEl, tip.placement);
+
+    // Show with animation
+    requestAnimationFrame(() => {
+        tipEl.classList.add('show');
+    });
+}
+
+function positionTip(tipEl, targetEl, placement) {
+    const rect = targetEl.getBoundingClientRect();
+    const tipWidth = 280;
+    const tipHeight = tipEl.offsetHeight;
+    const gap = 12;
+    const arrowOffsetH = 24; // arrow's left offset for top/bottom placements
+    const arrowOffsetV = 16; // arrow's top offset for left/right placements
+    const targetCenterX = rect.left + rect.width / 2;
+    const targetCenterY = rect.top + rect.height / 2;
+
+    let top, left;
+
+    switch (placement) {
+        case 'bottom':
+            top = rect.bottom + gap;
+            left = targetCenterX - arrowOffsetH - 6; // center arrow (6 = half of 12px arrow)
+            break;
+        case 'top':
+            top = rect.top - gap - tipHeight;
+            left = targetCenterX - arrowOffsetH - 6;
+            break;
+        case 'left':
+            top = targetCenterY - arrowOffsetV - 6;
+            left = rect.left - tipWidth - gap;
+            break;
+        case 'right':
+            top = targetCenterY - arrowOffsetV - 6;
+            left = rect.right + gap;
+            break;
+    }
+
+    // Clamp to viewport
+    left = Math.max(12, Math.min(left, window.innerWidth - tipWidth - 12));
+    top = Math.max(12, top);
+
+    tipEl.style.top = top + 'px';
+    tipEl.style.left = left + 'px';
+}
+
+function dismissOnboardingTip() {
+    const tipEl = document.getElementById('onboarding-tip');
+    if (!tipEl) return;
+
+    const tipId = tipEl.dataset.tipId;
+
+    // Hide with animation
+    tipEl.classList.remove('show');
+    setTimeout(() => {
+        tipEl.style.display = 'none';
+    }, 300);
+
+    // Remove highlight
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+
+    // Save dismissed state
+    if (tipId) {
+        const state = getOnboardingState();
+        if (!state.dismissed.includes(tipId)) {
+            state.dismissed.push(tipId);
+            saveOnboardingState(state);
+        }
+    }
+
+    // Auto-advance to next tip
+    setTimeout(() => {
+        checkOnboardingTips();
+    }, 800);
+}
+
+function skipAllOnboardingTips() {
+    const tipEl = document.getElementById('onboarding-tip');
+
+    // Mark all tips as dismissed
+    const state = { activated: true, dismissed: ONBOARDING_TIPS.map(t => t.id) };
+    saveOnboardingState(state);
+
+    // Hide current tip
+    if (tipEl) {
+        tipEl.classList.remove('show');
+        setTimeout(() => {
+            tipEl.style.display = 'none';
+        }, 300);
+    }
+
+    // Remove highlights
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+}
+
+function hideOnboardingTip() {
+    const tipEl = document.getElementById('onboarding-tip');
+    if (!tipEl) return;
+    tipEl.classList.remove('show');
+    setTimeout(() => {
+        tipEl.style.display = 'none';
+    }, 300);
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+}
+
+function checkOnboardingTips() {
+    const tip = getNextTip();
+    if (tip) {
+        showOnboardingTip(tip);
+    } else {
+        hideOnboardingTip();
+    }
+}
+
+function resetOnboarding() {
+    saveOnboardingState({ activated: true, dismissed: [] });
+    showNotification('Quick-start tips reset. They will appear as you use the app.');
+    closeSettingsModal();
+    setTimeout(() => checkOnboardingTips(), 500);
+}
+
+// Reposition on resize/scroll
+let onboardingRepositionTimer = null;
+
+function repositionActiveTip() {
+    const tipEl = document.getElementById('onboarding-tip');
+    if (!tipEl || tipEl.style.display === 'none') return;
+
+    const tipId = tipEl.dataset.tipId;
+    const tip = ONBOARDING_TIPS.find(t => t.id === tipId);
+    if (!tip) return;
+
+    const targetEl = document.querySelector(tip.target);
+    if (!targetEl || targetEl.offsetParent === null) {
+        hideOnboardingTip();
+        return;
+    }
+
+    positionTip(tipEl, targetEl, tip.placement);
+}
+
+window.addEventListener('resize', () => {
+    clearTimeout(onboardingRepositionTimer);
+    onboardingRepositionTimer = setTimeout(repositionActiveTip, 100);
+});
+
+window.addEventListener('scroll', () => {
+    clearTimeout(onboardingRepositionTimer);
+    onboardingRepositionTimer = setTimeout(repositionActiveTip, 50);
+}, { passive: true });
 

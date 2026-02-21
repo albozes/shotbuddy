@@ -80,6 +80,15 @@ How to verify ShotBuddy features after updates. Run through each section to conf
 - **Expand shot** — Click anywhere on the collapsed row. Content reappears.
 - **Persistence** — Reload the page. Collapsed shots stay collapsed.
 
+## Quick-Start Onboarding Tips
+
+- **First launch** — Clear `localStorage` (`localStorage.removeItem('shotbuddy_onboarding')`) and reload. Tip 1 should appear pointing at the project toggle button.
+- **Tip progression** — Dismiss each tip with "Got it". The next applicable tip appears after a short delay.
+- **Skip all** — Click "Skip all" on any tip. All remaining tips should disappear and not come back.
+- **Persistence** — Dismiss a few tips, reload the page. Dismissed tips should not reappear.
+- **Reset tips** — Open Settings, click "Reset Quick-Start Tips". Tips restart from the beginning.
+- **Full flow** — Walk through the entire user journey (no project → open project → create shot → upload asset). Each tip should appear at the right moment targeting the correct UI element.
+
 ## UI & Interactions
 
 - **Notifications** — Successful actions show green toast, errors show red. They disappear after a few seconds.

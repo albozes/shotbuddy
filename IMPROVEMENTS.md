@@ -2,18 +2,6 @@
 
 This document tracks pending UI and design improvements for ShotBuddy.
 
-### Empty States & Onboarding
-
-**Current:** Basic "No project" message.
-
-**Improvement:**
-- Illustrated empty state (simple line art of a clapperboard or film strip)
-- Animated arrow pointing to File menu
-- Quick-start tips that fade after first use
-- "Recent Projects" list for quick access
-
----
-
 ## Usability Improvements
 
 ### Expandable Notes Section
