@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 from app.services.shot_manager import get_shot_manager
-from app.services.file_handler import FileHandler
+from app.services.file_handler import FileHandler, resolve_naming_pattern
 from app.utils import (
     require_project,
     error_response,
@@ -28,40 +28,6 @@ def _find_file_with_extensions(folder_path, base_name, extensions):
             return candidate
     return None
 
-
-def _get_file_for_latest_folder(project_path, shot_name, asset_type):
-    """Get the file to reveal when using 'latest_folder' behavior."""
-    from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
-
-    if asset_type == AssetType.IMAGE:
-        folder_path = project_path / 'shots' / 'latest_images'
-        extensions = ALLOWED_IMAGE_EXTENSIONS
-    elif asset_type == AssetType.VIDEO:
-        folder_path = project_path / 'shots' / 'latest_videos'
-        extensions = ALLOWED_VIDEO_EXTENSIONS
-    else:
-        return None
-
-    return _find_file_with_extensions(folder_path, shot_name, extensions)
-
-
-def _get_file_for_version_folder(project_path, shot_name, asset_type, version):
-    """Get the versioned file to reveal when using 'version_folder' behavior."""
-    from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
-
-    if version <= 0:
-        return None
-
-    if asset_type == AssetType.IMAGE:
-        folder_path = project_path / 'shots' / 'wip' / shot_name / 'images'
-        extensions = ALLOWED_IMAGE_EXTENSIONS
-    elif asset_type == AssetType.VIDEO:
-        folder_path = project_path / 'shots' / 'wip' / shot_name / 'videos'
-        extensions = ALLOWED_VIDEO_EXTENSIONS
-    else:
-        return None
-
-    return _find_file_with_extensions(folder_path, f'{shot_name}_v{version:03d}', extensions)
 
 @shot_bp.route("/", strict_slashes=False, methods=["GET"])
 @require_project
@@ -273,37 +239,36 @@ def reveal_file(project):
         project_path = Path(project["path"]).resolve()
         file_to_select = None
 
-        # Determine which file to select based on settings
         if shot_name and asset_type:
+            naming_pattern = settings.get('file_naming_pattern', '{shot}')
+            base_name = resolve_naming_pattern(naming_pattern, project_path.name, shot_name)
+            ext = Path(rel_path).suffix
+
             if thumbnail_behavior == 'latest_folder':
-                file_to_select = _get_file_for_latest_folder(project_path, shot_name, asset_type)
+                subfolder = 'latest_images' if asset_type == AssetType.IMAGE else 'latest_videos'
+                file_to_select = project_path / 'shots' / subfolder / f'{base_name}{ext}'
 
             elif thumbnail_behavior == 'version_folder':
                 shot_manager = get_shot_manager(project["path"])
                 shot_info = shot_manager.get_shot_info(shot_name)
                 version = shot_info.get(asset_type, {}).get('version', 0)
-                file_to_select = _get_file_for_version_folder(project_path, shot_name, asset_type, version)
+                if version > 0:
+                    media_dir = 'images' if asset_type == AssetType.IMAGE else 'videos'
+                    file_to_select = project_path / 'shots' / 'wip' / shot_name / media_dir / f'{base_name}_v{version:03d}{ext}'
 
-        if file_to_select:
+        if file_to_select and file_to_select.exists():
             reveal_in_file_browser(file_to_select)
             return jsonify({"success": True})
 
-        # Fallback: reveal the specific file from rel_path
-        file_path = Path(rel_path)
-        if not file_path.is_absolute():
-            file_path = (project_path / file_path).resolve()
-        else:
-            file_path = file_path.resolve()
+        # Fallback: open the shot's media folder directly
+        if shot_name and asset_type:
+            media_dir = 'images' if asset_type == AssetType.IMAGE else 'videos'
+            folder = project_path / 'shots' / 'wip' / shot_name / media_dir
+            if folder.exists():
+                open_folder_in_browser(folder)
+                return jsonify({"success": True})
 
-        # Security check: ensure the resolved path is within the project directory
-        if not str(file_path).startswith(str(project_path)):
-            return error_response("Invalid path")
-
-        if not file_path.exists():
-            return error_response(f"File does not exist: {file_path}", 404)
-
-        reveal_in_file_browser(file_path)
-        return jsonify({"success": True})
+        return error_response("File not found", 404)
     except Exception as e:
         return error_response(str(e), 500)
 
