@@ -43,3 +43,8 @@ This `CLAUDE.md` applies to the entire repository.
 2. Check for existing utilities/hooks that handle the use case
 3. Follow existing patterns in the codebase
 4. Remove any code that becomes unused after changes
+
+## Post-Edit Verification
+
+- **Always run `git diff --stat` after each edit** to confirm only the intended file and lines changed. The `code-simplifier` plugin (enabled globally) can automatically reformat or strip large sections of CSS, Python, and other files after an edit. If unexpected changes appear, revert immediately with `git checkout -- <file>` before making further edits.
+- When editing CSS or JS files, verify the file size and structure are intact after the edit completes.

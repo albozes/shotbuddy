@@ -116,7 +116,10 @@
             });
             document.addEventListener('dragleave', (e) => {
                 dragCounter--;
-                if (dragCounter === 0) {
+                if (dragCounter <= 0 ||
+                    e.clientX <= 0 || e.clientY <= 0 ||
+                    e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+                    dragCounter = 0;
                     document.body.classList.remove('dragging-files');
                 }
             });
@@ -612,7 +615,7 @@
                 if (result.success) {
                     showNotification(`${file.name} uploaded successfully!`);
                     // Store upload target for animation after reload
-                    window.pendingUploadAnimation = { shotName, type };
+                    window.pendingUploadAnimation = { shotName, type: fileType };
                     loadShots(`shot-row-${shotName}`); // Refresh and keep scroll
                 } else {
                     showNotification(result.error || 'Upload failed', 'error');

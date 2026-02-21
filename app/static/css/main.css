@@ -676,13 +676,12 @@
 
         /* Drop zone between shots */
         .drop-between-zone {
-            height: 40px;
-            margin: -15px auto;
-            width: 50%;
+            height: 12px;
+            margin: 0;
+            width: 100%;
             border-radius: var(--radius-md);
             transition: all var(--transition-base);
             position: relative;
-            z-index: 100;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -699,6 +698,8 @@
             font-size: 18px;
             font-weight: 600;
             line-height: 1;
+            padding-top: 2px;
+            box-sizing: border-box;
             cursor: pointer;
             transition: all var(--transition-fast), transform var(--transition-spring);
             display: flex;
@@ -726,8 +727,8 @@
 
         /* When dragging files on page, show expanded hit areas */
         body.dragging-files .drop-between-zone {
-            height: 50px;
-            margin: -20px 0;
+            height: 48px;
+            margin: 2px 0;
             background: rgba(var(--color-accent-rgb), 0.1);
             border: 1px dashed rgba(var(--color-accent-rgb), 0.3);
         }
@@ -739,8 +740,8 @@
         }
 
         .drop-between-zone.drag-over {
-            height: 80px;
-            margin: 5px 0;
+            height: 64px;
+            margin: 4px 0;
             background: var(--color-accent-muted);
             border: 2px dashed var(--color-accent);
         }
@@ -895,19 +896,19 @@
             height: 48px;
             color: var(--color-text-tertiary);
             opacity: 0.5;
-            transition: all var(--transition-base);
+            transition: color var(--transition-base), opacity var(--transition-base), scale var(--transition-base);
             animation: float 3s ease-in-out infinite;
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
+            0%, 100% { translate: 0 0; }
+            50% { translate: 0 -4px; }
         }
 
         .drop-zone:hover .drop-icon {
             color: var(--color-accent);
             opacity: 1;
-            transform: scale(1.15);
+            scale: 1.15;
             animation: none;
         }
 
