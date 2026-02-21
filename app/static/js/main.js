@@ -1135,8 +1135,8 @@ function applyMode(mode) {
     document.documentElement.setAttribute('data-mode', mode);
     const toggle = document.getElementById('mode-toggle');
     if (toggle) {
-        toggle.querySelector('.mode-icon-dark').style.display = mode === 'light' ? 'none' : '';
-        toggle.querySelector('.mode-icon-light').style.display = mode === 'light' ? '' : 'none';
+        toggle.querySelector('.mode-icon-dark').style.display = mode === 'dark' ? 'none' : '';
+        toggle.querySelector('.mode-icon-light').style.display = mode === 'dark' ? '' : 'none';
     }
 }
 
