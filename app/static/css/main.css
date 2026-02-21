@@ -667,7 +667,6 @@
             padding-bottom: 10px;
             cursor: default;
             box-shadow: var(--shadow-sm);
-            overflow: hidden;
             transition: background 0.15s ease;
         }
 
@@ -684,6 +683,7 @@
 
         .shot-row.collapsed {
             cursor: pointer;
+            overflow: hidden;
             animation: collapse-row 0.5s ease forwards;
             animation-delay: 0.2s;
         }
@@ -703,6 +703,7 @@
 
         /* Expanding animation (reverse of collapse) */
         .shot-row.expanding {
+            overflow: hidden;
             animation: expand-row 0.5s ease forwards;
         }
 

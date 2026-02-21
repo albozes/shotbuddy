@@ -432,6 +432,11 @@ def restore_version(project):
 
         project_path = Path(project["path"])
 
+        project_manager = current_app.config['PROJECT_MANAGER']
+        settings = project_manager.get_settings()
+        naming_pattern = settings.get('file_naming_pattern', '{shot}')
+        base_name = resolve_naming_pattern(naming_pattern, project_path.name, shot_name)
+
         # Determine paths based on asset type
         if asset_type == AssetType.IMAGE:
             wip_dir = project_path / "shots" / "wip" / shot_name / "images"
@@ -447,7 +452,7 @@ def restore_version(project):
         # Find the versioned file
         version_file = _find_file_with_extensions(
             wip_dir,
-            f"{shot_name}_v{version:03d}",
+            f"{base_name}_v{version:03d}",
             extensions
         )
 
@@ -456,12 +461,12 @@ def restore_version(project):
 
         # Remove existing files in latest folder for this shot
         for ext in extensions:
-            existing = latest_dir / f"{shot_name}{ext}"
+            existing = latest_dir / f"{base_name}{ext}"
             if existing.exists():
                 existing.unlink()
 
         # Copy the versioned file to latest folder
-        dest_path = latest_dir / f"{shot_name}{version_file.suffix}"
+        dest_path = latest_dir / f"{base_name}{version_file.suffix}"
         shutil.copy2(str(version_file), str(dest_path))
 
         # Regenerate thumbnail for the restored version

@@ -487,9 +487,10 @@
                     `data-video-src="${file.file}" onmouseenter="showVideoPreview(this)" onmouseleave="hideVideoPreview(this)"` : '';
 
                 // Build version dropdown items (newest first)
+                const activeVersion = file.active_version || file.version;
                 let versionItems = '';
                 for (let v = file.version; v >= 1; v--) {
-                    const isCurrent = v === file.version;
+                    const isCurrent = v === activeVersion;
                     versionItems += `<div class="version-dropdown-item${isCurrent ? ' current' : ''}"
                                          data-shot="${shot.name}"
                                          data-type="${type}"
@@ -510,7 +511,7 @@
                                 onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
                             <div class="version-dropdown-container">
-                                <div class="version-badge" onclick="toggleShotVersionDropdown(event, this)">v${String(file.version).padStart(3, '0')}</div>
+                                <div class="version-badge" onclick="toggleShotVersionDropdown(event, this)">v${String(activeVersion).padStart(3, '0')}</div>
                                 <div class="version-dropdown-menu">${versionItems}</div>
                             </div>
                             <button class="prompt-button"

@@ -1,4 +1,5 @@
 from pathlib import Path
+import filecmp
 import logging
 import re
 
@@ -378,20 +379,21 @@ class ShotManager:
             extensions = ALLOWED_VIDEO_EXTENSIONS
             get_thumb = self.get_video_thumbnail_path
 
-        file_path, version = self._get_latest_asset(
+        file_path, version, active_version = self._get_latest_asset(
             final_dir, shot_dir / wip_subdir, shot_name, extensions
         )
         file_path = self._normalize_path(file_path)
 
         prompt = ''
-        if version > 0:
-            prompt = self.load_prompt(shot_name, asset_type, version)
+        if active_version > 0:
+            prompt = self.load_prompt(shot_name, asset_type, active_version)
 
         thumbnail = get_thumb(file_path, shot_name, generate=generate) if file_path else None
 
         return {
             'file': file_path,
             'version': version,
+            'active_version': active_version,
             'thumbnail': thumbnail,
             'prompt': prompt,
         }
@@ -402,15 +404,15 @@ class ShotManager:
         lipsync = {}
 
         for part in [AssetType.DRIVER, AssetType.TARGET, AssetType.RESULT]:
-            file_path, ver = self._get_latest_asset(
+            file_path, ver, active_ver = self._get_latest_asset(
                 lipsync_dir, lipsync_dir,
                 f'{shot_name}_{part}', ALLOWED_VIDEO_EXTENSIONS
             )
             file_path = self._normalize_path(file_path)
 
             prompt_text = ''
-            if ver > 0:
-                prompt_text = self.load_prompt(shot_name, part, ver)
+            if active_ver > 0:
+                prompt_text = self.load_prompt(shot_name, part, active_ver)
 
             thumbnail = None
             if file_path:
@@ -419,6 +421,7 @@ class ShotManager:
             lipsync[part] = {
                 'file': file_path,
                 'version': ver,
+                'active_version': active_ver,
                 'thumbnail': thumbnail,
                 'prompt': prompt_text,
             }
@@ -453,6 +456,11 @@ class ShotManager:
 
         Searches for files containing ``shot_name`` to support custom naming
         patterns.
+
+        Returns:
+            (file_path, max_version, active_version) where *max_version* is
+            the highest version in WIP and *active_version* is the version
+            whose content matches the file in the latest folder.
         """
         latest_final = None
         if final_dir.exists():
@@ -468,21 +476,32 @@ class ShotManager:
                     break
 
         version = 0
+        wip_version_map = {}
         if wip_dir.exists():
             wip_files = []
             for ext in extensions:
                 wip_files.extend(wip_dir.glob(f'*_v*{ext}'))
 
-            versions = []
             for f in wip_files:
                 m = VERSION_RE.search(f.stem)
                 if m:
-                    versions.append(int(m.group(1)))
+                    wip_version_map[int(m.group(1))] = f
 
-            if versions:
-                version = max(versions)
+            if wip_version_map:
+                version = max(wip_version_map)
 
-        return latest_final, version
+        # Determine which WIP version matches the file in the latest folder.
+        active_version = version
+        if latest_final and wip_version_map:
+            for ver in sorted(wip_version_map, reverse=True):
+                try:
+                    if filecmp.cmp(latest_final, str(wip_version_map[ver]), shallow=True):
+                        active_version = ver
+                        break
+                except OSError:
+                    continue
+
+        return latest_final, version, active_version
 
     def sync_latest_folders(self):
         """Ensure latest_images/ and latest_videos/ match the highest WIP versions.
