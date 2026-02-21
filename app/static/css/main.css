@@ -149,6 +149,9 @@
             color: var(--color-text-primary);
             line-height: 1.5;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
 
         /* ===== BUTTON SYSTEM ===== */
@@ -1714,6 +1717,7 @@
         }
 
         .app-footer {
+            margin-top: auto;
             padding: 15px 0;
             text-align: center;
             font-size: 12px;
