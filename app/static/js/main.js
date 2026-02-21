@@ -480,7 +480,7 @@
                 const needsLazyLoad = file.version > 0 && !file.thumbnail;
                 const thumbnailStyle = thumbnailUrl ?
                     `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
-                    'background: #404040;';
+                    'background: var(--color-bg-hover);';
 
                 // Add video preview attributes for video thumbnails
                 const videoAttrs = type === 'video' && file.file ?
@@ -551,7 +551,7 @@
                     const needsLazyLoad = file.version > 0 && !file.thumbnail;
                     const thumbnailStyle = thumbnailUrl ?
                         `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
-                        'background: #404040;';
+                        'background: var(--color-bg-hover);';
                     html += `
                         <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
                             <div class="file-preview lipsync-preview">
@@ -1108,8 +1108,14 @@ async function loadSettings() {
         const result = await response.json();
         if (result.success && result.settings) {
             currentSettings = result.settings;
-            // Apply saved theme
-            applyTheme(currentSettings.color_theme || 'forest-green');
+            // Validate theme against known values, fallback to default
+            const validThemes = ['default', 'cinema-gold', 'midnight-blue', 'coral-sunset', 'ocean-depths'];
+            if (!validThemes.includes(currentSettings.color_theme)) {
+                currentSettings.color_theme = 'default';
+            }
+            // Apply saved theme and mode
+            applyTheme(currentSettings.color_theme);
+            applyMode(currentSettings.color_mode || 'dark');
         }
     } catch (e) {
         console.error('Failed to load settings:', e);
@@ -1124,6 +1130,27 @@ function previewTheme(theme) {
     applyTheme(theme);
 }
 
+function applyMode(mode) {
+    document.documentElement.setAttribute('data-mode', mode);
+    const toggle = document.getElementById('mode-toggle');
+    if (toggle) {
+        toggle.querySelector('.mode-icon-dark').style.display = mode === 'light' ? 'none' : '';
+        toggle.querySelector('.mode-icon-light').style.display = mode === 'light' ? '' : 'none';
+    }
+}
+
+function toggleColorMode() {
+    const current = document.documentElement.getAttribute('data-mode') || 'dark';
+    const newMode = current === 'dark' ? 'light' : 'dark';
+    applyMode(newMode);
+    currentSettings.color_mode = newMode;
+    fetch('/api/settings/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color_mode: newMode })
+    });
+}
+
 async function openSettingsModal() {
     // Load current settings first
     await loadSettings();
@@ -1133,7 +1160,7 @@ async function openSettingsModal() {
     thumbnailDropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
 
     const themeDropdown = document.getElementById('color-theme');
-    themeDropdown.value = currentSettings.color_theme || 'forest-green';
+    themeDropdown.value = currentSettings.color_theme || 'default';
 
     // Show the modal with animation
     const modal = document.getElementById('settings-modal');
@@ -1145,7 +1172,7 @@ async function openSettingsModal() {
 
 function closeSettingsModal() {
     // Revert to saved theme if cancelled
-    applyTheme(currentSettings.color_theme || 'forest-green');
+    applyTheme(currentSettings.color_theme || 'default');
 
     const modal = document.getElementById('settings-modal');
     modal.classList.remove('show');
@@ -1159,7 +1186,8 @@ async function saveSettings() {
     const themeDropdown = document.getElementById('color-theme');
     const newSettings = {
         thumbnail_click_behavior: thumbnailDropdown.value,
-        color_theme: themeDropdown.value
+        color_theme: themeDropdown.value,
+        color_mode: currentSettings.color_mode || 'dark'
     };
 
     try {
@@ -1350,8 +1378,9 @@ window.hideVideoPreview = function(element) {
     }
 };
 
-// Apply default theme immediately, then load saved settings
-applyTheme('forest-green');
+// Apply default theme and mode immediately, then load saved settings
+applyTheme('default');
+applyMode('dark');
 loadSettings();
 
 // Toggle shot collapse/expand

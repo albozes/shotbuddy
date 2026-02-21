@@ -70,7 +70,8 @@ How to verify ShotBuddy features after updates. Run through each section to conf
 
 ## Settings
 
-- **Color theme** — Open Settings, select a theme (forest-green, cinema-gold, midnight-blue, coral-sunset, ocean-depths). Colors update immediately. Save and reload to verify persistence.
+- **Color theme** — Open Settings, select a theme (default, cinema-gold, midnight-blue, coral-sunset, ocean-depths). Colors update immediately. Save and reload to verify persistence.
+- **Light/dark mode** — Click the moon/sun icon in the top-right of the taskbar. UI switches instantly. Reload to verify persistence. Test with each color theme to confirm all theme+mode combinations work.
 - **Thumbnail click behavior** — Change the setting, save, then click a thumbnail to confirm the correct file opens.
 - **Persistence** — Settings survive page reload and project re-open.
 
