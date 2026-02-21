@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="app/static/icons/shotbuddy_icon_256.png" alt="Shotbuddy" width="128">
+</p>
+
 # Shotbuddy
 An application for managing AI-driven image-to-video filmmaking workflows, supporting structured organization, versioning, and annotation of generated stills and videos.
 

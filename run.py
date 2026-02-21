@@ -26,22 +26,14 @@ def load_server_config():
 
 
 def check_port_in_use(host, port):
-    """Check if a port is already in use by trying to bind to it."""
-    sock = None
+    """Check if a port is already in use."""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((host, port))
+        sock.settimeout(0.5)
+        result = sock.connect_ex((host, port))
         sock.close()
-        return False  # Port is available
-    except OSError as e:
-        if sock:
-            sock.close()
-        # Port is in use if we get "Address already in use" error
-        return e.errno == 48 or e.errno == 98 or "Address already in use" in str(e)
-    except Exception:
-        if sock:
-            sock.close()
+        return result == 0
+    except:
         return False
 
 

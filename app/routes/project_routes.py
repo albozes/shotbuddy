@@ -6,7 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from app.services.shot_manager import get_shot_manager, clear_shot_manager_cache
-from app.services.file_handler import FileHandler
 
 project_bp = Blueprint('project', __name__)
 
@@ -22,12 +21,6 @@ def get_current_project():
         if project:
             project_path = Path(project["path"])
             path_str = str(project_path)
-
-            # Always clear thumbnail cache when loading project to prevent showing wrong thumbnails
-            file_handler = FileHandler(path_str)
-            file_handler.clear_thumbnail_cache()
-            clear_shot_manager_cache()
-            get_shot_manager(path_str).get_shots()
 
             # Update last scanned timestamp
             folder_mtime = project_path.stat().st_mtime
@@ -92,19 +85,17 @@ def open_project():
         (shots_dir / "latest_images").mkdir(exist_ok=True)
         (shots_dir / "latest_videos").mkdir(exist_ok=True)
 
+        # Only clear ShotManager cache when switching to a different project
+        previous_project = project_manager.projects.get('current_project')
+        if previous_project != path_str:
+            clear_shot_manager_cache()
+
         # Update project manager state
         path_str = str(project_path)
         project_manager.projects['current_project'] = path_str
         if path_str not in project_manager.projects['recent_projects']:
             project_manager.projects['recent_projects'].insert(0, path_str)
             project_manager.projects['recent_projects'] = project_manager.projects['recent_projects'][:5]
-
-        # Always clear thumbnail cache when switching projects to prevent showing wrong thumbnails
-        file_handler = FileHandler(path_str)
-        file_handler.clear_thumbnail_cache()
-        clear_shot_manager_cache()
-        shot_manager = get_shot_manager(path_str)
-        shot_manager.get_shots()
 
         # Update last scanned timestamp
         folder_mtime = project_path.stat().st_mtime
@@ -113,7 +104,25 @@ def open_project():
         )
         project_manager.save_projects()
 
+        # Sync latest folders to ensure consistency with WIP
+        try:
+            shot_manager = get_shot_manager(path_str)
+            shot_manager.sync_latest_folders()
+        except Exception as e:
+            logger.warning("Failed to sync latest folders on project open: %s", e)
+
         return jsonify({"success": True, "data": project_info})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@project_bp.route("/api/project/close", methods=["POST"])
+def close_project():
+    try:
+        project_manager = current_app.config['PROJECT_MANAGER']
+        project_manager.clear_current_project()
+        clear_shot_manager_cache()
+        return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -151,13 +160,13 @@ def create_project():
         project_manager.projects['recent_projects'] = [path_str]
         project_manager.save_projects()
 
-        # Clear thumbnail cache when creating new project to prevent showing old thumbnails
-        file_handler = FileHandler(path_str)
-        file_handler.clear_thumbnail_cache()
+        # Clear ShotManager cache for fresh state with the new project
         clear_shot_manager_cache()
 
-        # Optional: sanity check (useful in dev)
-        assert project_manager.get_current_project() is not None
+        # Verify project was set correctly
+        if project_manager.get_current_project() is None:
+            logger.error("Project state inconsistency: project not set after creation")
+            return jsonify({"success": False, "error": "Failed to set project state"}), 500
 
         return jsonify({"success": True, "data": project_info})
     except Exception as e:

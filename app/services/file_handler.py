@@ -1,33 +1,33 @@
 from pathlib import Path
 import shutil
-from PIL import Image
-
-from app.services.prompt_importer import extract_prompt_from_png
 import logging
 
-logger = logging.getLogger(__name__)
+from app.services.prompt_importer import extract_prompt_from_png
 from app.services.shot_manager import get_shot_manager
+from app.utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
 from app.config.constants import (
     ALLOWED_IMAGE_EXTENSIONS,
     ALLOWED_VIDEO_EXTENSIONS,
     THUMBNAIL_CACHE_DIR,
-    THUMBNAIL_SIZE,
+    AssetType,
 )
+
+logger = logging.getLogger(__name__)
 
 # Ensure the thumbnail cache directory exists.
 THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 class FileHandler:
     def __init__(self, project_path):
-        self.project_path = Path(project_path)
-        self.shots_dir = self.project_path / 'shots'
-        self.wip_dir = self.shots_dir / 'wip'
-        self.latest_images_dir = self.shots_dir / 'latest_images'
-        self.latest_videos_dir = self.shots_dir / 'latest_videos'
+        self._paths = ProjectPaths(project_path)
+        self._paths.ensure_directories()
 
-        self.wip_dir.mkdir(parents=True, exist_ok=True)
-        self.latest_images_dir.mkdir(parents=True, exist_ok=True)
-        self.latest_videos_dir.mkdir(parents=True, exist_ok=True)
+        # Expose paths as instance attributes for compatibility
+        self.project_path = self._paths.project_path
+        self.shots_dir = self._paths.shots_dir
+        self.wip_dir = self._paths.wip_dir
+        self.latest_images_dir = self._paths.latest_images_dir
+        self.latest_videos_dir = self._paths.latest_videos_dir
 
     def clear_thumbnail_cache(self):
         """Remove all files from the thumbnail cache."""
@@ -47,25 +47,25 @@ class FileHandler:
         shot_dir = self.wip_dir / shot_name
         file_ext = Path(file.filename).suffix.lower()
 
-        if file_type == 'image' and file_ext not in ALLOWED_IMAGE_EXTENSIONS:
+        if file_type == AssetType.IMAGE and file_ext not in ALLOWED_IMAGE_EXTENSIONS:
             raise ValueError(f"Invalid image format. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
-        elif file_type == 'video' and file_ext not in ALLOWED_VIDEO_EXTENSIONS:
+        elif file_type == AssetType.VIDEO and file_ext not in ALLOWED_VIDEO_EXTENSIONS:
             raise ValueError(f"Invalid video format. Allowed: {', '.join(ALLOWED_VIDEO_EXTENSIONS)}")
-        elif file_type in {'driver', 'target', 'result'} and file_ext not in ALLOWED_VIDEO_EXTENSIONS:
+        elif file_type in AssetType.LIPSYNC_TYPES and file_ext not in ALLOWED_VIDEO_EXTENSIONS:
             raise ValueError(f"Invalid video format. Allowed: {', '.join(ALLOWED_VIDEO_EXTENSIONS)}")
 
         if not shot_dir.exists():
             get_shot_manager(self.project_path).create_shot_structure(shot_name)
 
-        if file_type in {'image', 'video'}:
-            wip_dir = shot_dir / ('images' if file_type == 'image' else 'videos')
-            version = self.get_next_version(wip_dir, shot_name, file_ext)
+        if file_type in AssetType.MEDIA_TYPES:
+            wip_dir = shot_dir / ('images' if file_type == AssetType.IMAGE else 'videos')
+            version = self.get_next_version(wip_dir, shot_name)
 
             wip_filename = f'{shot_name}_v{version:03d}{file_ext}'
             wip_path = wip_dir / wip_filename
             file.save(str(wip_path))
 
-            final_dir = self.latest_images_dir if file_type == 'image' else self.latest_videos_dir
+            final_dir = self.latest_images_dir if file_type == AssetType.IMAGE else self.latest_videos_dir
             final_filename = f'{shot_name}{file_ext}'
             final_path = final_dir / final_filename
 
@@ -85,7 +85,7 @@ class FileHandler:
                         prompt_text += f"\n\nNegative: {neg}"
                     try:
                         manager = get_shot_manager(self.project_path)
-                        manager.save_prompt(shot_name, 'image', version, prompt_text)
+                        manager.save_prompt(shot_name, AssetType.IMAGE, version, prompt_text)
                         logger.info("Imported prompt from metadata for %s", final_path)
                     except Exception as e:
                         logger.warning('Failed to save imported prompt: %s', e)
@@ -96,7 +96,7 @@ class FileHandler:
             dest_dir = shot_dir / 'lipsync'
             dest_dir.mkdir(exist_ok=True)
             base = f'{shot_name}_{file_type}'
-            version = self.get_next_version(dest_dir, base, file_ext)
+            version = self.get_next_version(dest_dir, base)
             wip_filename = f'{base}_v{version:03d}{file_ext}'
             wip_path = dest_dir / wip_filename
             file.save(str(wip_path))
@@ -110,7 +110,7 @@ class FileHandler:
             thumb_key = base
 
         thumbnail_path = None
-        if file_type == 'image':
+        if file_type == AssetType.IMAGE:
             thumbnail_path = self.create_thumbnail(str(final_path), shot_name)
         else:
             thumbnail_path = self.create_video_thumbnail(str(final_path), thumb_key)
@@ -122,7 +122,8 @@ class FileHandler:
             'thumbnail': f"static/thumbnails/{Path(thumbnail_path).name}" if thumbnail_path else None
         }
 
-    def get_next_version(self, wip_dir, shot_name, file_ext):
+    def get_next_version(self, wip_dir, shot_name):
+        """Get the next available version number for a shot asset."""
         if not wip_dir.exists():
             return 1
 
@@ -146,69 +147,18 @@ class FileHandler:
 
         return max(versions) + 1 if versions else 1
 
-    def create_thumbnail(self, image_path, shot_name, size=THUMBNAIL_SIZE):
-        """Create thumbnail for image and save it to the central cache"""
-        try:
-            with Image.open(image_path) as img:
-                img.thumbnail(size, Image.Resampling.LANCZOS)
+    def create_thumbnail(self, image_path, shot_name):
+        """Create thumbnail for image and save it to the central cache."""
+        image_path = Path(image_path)
+        project_name = self.project_path.name
+        thumb_filename = f"{project_name}_{shot_name}_{image_path.stem}_thumb.jpg"
+        thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+        return create_image_thumbnail(image_path, thumb_path)
 
-                # Unique thumbnail name with project identifier to prevent collisions
-                image_path = Path(image_path)
-                project_name = self.project_path.name
-                thumb_filename = f"{project_name}_{shot_name}_{image_path.stem}_thumb.jpg"
-                thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
-
-                if thumb_path.exists():
-                    thumb_path.unlink()
-
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', img.size, (64, 64, 64))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.split()[-1] if 'A' in img.mode else None)
-                    img = background
-
-                img.save(str(thumb_path), 'JPEG', quality=85)
-                return str(thumb_path)
-
-        except Exception as e:
-            logger.warning("Error creating thumbnail: %s", e)
-            return None
-
-    def create_video_thumbnail(self, video_path, shot_name, size=THUMBNAIL_SIZE):
+    def create_video_thumbnail(self, video_path, shot_name):
         """Extract the first frame of ``video_path`` and save it as a thumbnail."""
-        try:
-            import subprocess
-            import shutil as _shutil
-
-            video_path = Path(video_path)
-            project_name = self.project_path.name
-            thumb_filename = f"{project_name}_{shot_name}_{video_path.stem}_vthumb.jpg"
-            thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
-
-            ffmpeg = _shutil.which("ffmpeg")
-            if not ffmpeg:
-                logger.warning("ffmpeg not found; skipping video thumbnail for %s", video_path)
-                return None
-
-            THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            tmp_path = thumb_path.with_suffix(".tmp.jpg")
-
-            cmd = [ffmpeg, "-y", "-i", str(video_path), "-frames:v", "1", str(tmp_path)]
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-            with Image.open(tmp_path) as img:
-                img.thumbnail(size, Image.Resampling.LANCZOS)
-                if img.mode in ("RGBA", "LA", "P"):
-                    background = Image.new("RGB", img.size, (64, 64, 64))
-                    if img.mode == "P":
-                        img = img.convert("RGBA")
-                    background.paste(img, mask=img.split()[-1] if "A" in img.mode else None)
-                    img = background
-                img.save(str(thumb_path), "JPEG", quality=85)
-
-            tmp_path.unlink(missing_ok=True)
-            return str(thumb_path)
-        except Exception as e:
-            logger.warning("Error creating video thumbnail: %s", e)
-            return None
+        video_path = Path(video_path)
+        project_name = self.project_path.name
+        thumb_filename = f"{project_name}_{shot_name}_{video_path.stem}_vthumb.jpg"
+        thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+        return create_video_thumbnail(video_path, thumb_path)

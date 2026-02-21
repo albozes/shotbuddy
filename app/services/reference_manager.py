@@ -1,10 +1,9 @@
 from pathlib import Path
-import shutil
 from typing import List, Dict
-from PIL import Image
 import logging
 
-from app.config.constants import THUMBNAIL_CACHE_DIR, THUMBNAIL_SIZE
+from app.utils import create_image_thumbnail
+from app.config.constants import THUMBNAIL_CACHE_DIR, ALLOWED_IMAGE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +25,12 @@ class ReferenceManager:
     def get_reference_images(self) -> List[Dict[str, str]]:
         """Get list of all reference images."""
         images = []
-        allowed_extensions = ['.jpg', '.jpeg', '.png']
 
         if not self.ref_images_dir.exists():
             return images
 
         for img_path in sorted(self.ref_images_dir.iterdir()):
-            if img_path.is_file() and img_path.suffix.lower() in allowed_extensions:
+            if img_path.is_file() and img_path.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS:
                 # Create thumbnail path
                 thumbnail_path = self._get_thumbnail_path(img_path.name)
                 thumbnail_url = None
@@ -49,12 +47,10 @@ class ReferenceManager:
 
     def save_reference_image(self, file, filename: str) -> Dict[str, str]:
         """Save a reference image."""
-        # Ensure valid extension
-        allowed_extensions = ['.jpg', '.jpeg', '.png']
         file_ext = Path(filename).suffix.lower()
 
-        if file_ext not in allowed_extensions:
-            raise ValueError(f"Invalid file type. Allowed: {', '.join(allowed_extensions)}")
+        if file_ext not in ALLOWED_IMAGE_EXTENSIONS:
+            raise ValueError(f"Invalid file type. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
 
         # Save the file
         destination = self.ref_images_dir / filename
@@ -79,35 +75,13 @@ class ReferenceManager:
         thumb_filename = f"{project_name}_ref_{file_stem}_thumb.jpg"
         return THUMBNAIL_CACHE_DIR / thumb_filename
 
-    def _create_thumbnail(self, image_path: str, filename: str, size=THUMBNAIL_SIZE):
+    def _create_thumbnail(self, image_path: str, filename: str):
         """Create thumbnail for reference image and save it to the central cache."""
-        try:
-            with Image.open(image_path) as img:
-                img.thumbnail(size, Image.Resampling.LANCZOS)
-
-                # Unique thumbnail name with project identifier to prevent collisions
-                project_name = self.project_path.name
-                file_stem = Path(filename).stem
-                thumb_filename = f"{project_name}_ref_{file_stem}_thumb.jpg"
-                thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
-
-                if thumb_path.exists():
-                    thumb_path.unlink()
-
-                # Convert to RGB if necessary
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', img.size, (64, 64, 64))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.split()[-1] if 'A' in img.mode else None)
-                    img = background
-
-                img.save(str(thumb_path), 'JPEG', quality=85)
-                return str(thumb_path)
-
-        except Exception as e:
-            logger.warning("Error creating reference image thumbnail: %s", e)
-            return None
+        project_name = self.project_path.name
+        file_stem = Path(filename).stem
+        thumb_filename = f"{project_name}_ref_{file_stem}_thumb.jpg"
+        thumb_path = THUMBNAIL_CACHE_DIR / thumb_filename
+        return create_image_thumbnail(image_path, thumb_path)
 
     def rename_reference_image(self, old_name: str, new_name: str) -> Dict[str, str]:
         """Rename a reference image."""
@@ -130,9 +104,8 @@ class ReferenceManager:
             raise ValueError(f"A file named '{new_name}' already exists")
 
         # Validate extension
-        allowed_extensions = ['.jpg', '.jpeg', '.png']
-        if old_ext not in allowed_extensions:
-            raise ValueError(f"Invalid file extension. Allowed: {', '.join(allowed_extensions)}")
+        if old_ext not in ALLOWED_IMAGE_EXTENSIONS:
+            raise ValueError(f"Invalid file extension. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
 
         # Delete old thumbnail
         old_thumb_path = self._get_thumbnail_path(old_name)
@@ -156,7 +129,13 @@ class ReferenceManager:
 
     def delete_reference_image(self, filename: str) -> bool:
         """Delete a reference image."""
-        file_path = self.ref_images_dir / filename
+        file_path = (self.ref_images_dir / filename).resolve()
+
+        # Security check: ensure the resolved path is within ref-images
+        try:
+            file_path.relative_to(self.ref_images_dir.resolve())
+        except ValueError:
+            raise ValueError("Invalid filename")
 
         if not file_path.exists():
             raise ValueError(f"Reference image '{filename}' not found")

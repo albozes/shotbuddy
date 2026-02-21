@@ -8,7 +8,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-settings_bp = Blueprint('settings', __name__, url_prefix='/api/settings')
+settings_bp = Blueprint('settings', __name__)
 
 @settings_bp.route('/', methods=['GET'])
 def get_settings():

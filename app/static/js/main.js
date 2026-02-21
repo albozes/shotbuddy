@@ -5,7 +5,78 @@
         const NEW_SHOT_DROP_TEXT = 'Drop an asset here to create a new shot.';
         document.documentElement.style.setProperty('--new-shot-drop-text', `'${NEW_SHOT_DROP_TEXT}'`);
 
-        // Menu functions
+        // App bar functions
+
+        function toggleProjectDrawer() {
+            const appBar = document.querySelector('.app-bar');
+            appBar.classList.toggle('drawer-open');
+            if (appBar.classList.contains('drawer-open')) {
+                loadRecentProjects();
+                document.getElementById('manual-path-input').focus();
+            }
+        }
+
+        function closeProjectDrawer() {
+            document.querySelector('.app-bar').classList.remove('drawer-open');
+        }
+
+        async function closeProject() {
+            try {
+                const response = await fetch('/api/project/close', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    currentProject = null;
+                    shots = [];
+                    showSetupScreen();
+                    showNotification('Project closed');
+                } else {
+                    showNotification(result.error || 'Failed to close project', 'error');
+                }
+            } catch (error) {
+                console.error('Error closing project:', error);
+                showNotification('Unexpected error closing project', 'error');
+            }
+        }
+
+        async function loadRecentProjects() {
+            try {
+                const response = await fetch('/api/project/recent');
+                const result = await response.json();
+                const container = document.getElementById('recent-projects');
+                container.innerHTML = '';
+
+                if (result.success && result.data && result.data.length > 0) {
+                    const label = document.createElement('span');
+                    label.className = 'recent-label';
+                    label.textContent = 'Recent';
+                    container.appendChild(label);
+
+                    result.data.forEach(project => {
+                        const chip = document.createElement('button');
+                        chip.className = 'recent-chip';
+                        chip.textContent = project.name;
+                        chip.title = project.path;
+                        chip.addEventListener('click', () => openRecentProject(project.path));
+                        container.appendChild(chip);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load recent projects:', error);
+            }
+        }
+
+        function openRecentProject(path) {
+            document.getElementById('manual-path-input').value = path;
+            loadProjectFromManualPath();
+        }
+
+        // Close drawer when clicking outside
+        document.addEventListener('click', function(e) {
+            const appBar = document.querySelector('.app-bar');
+            if (appBar.classList.contains('drawer-open') && !e.target.closest('.app-bar')) {
+                closeProjectDrawer();
+            }
+        });
 
         async function loadProjectFromManualPath() {
             const input = document.getElementById('manual-path-input');
@@ -46,12 +117,21 @@
                 return;
             }
             document.getElementById('new-project-name').value = '';
-            document.getElementById('create-project-modal').style.display = 'flex';
+            const modal = document.getElementById('create-project-modal');
+            modal.style.display = 'flex';
+            // Trigger animation
+            requestAnimationFrame(() => {
+                modal.classList.add('show');
+            });
             document.getElementById('new-project-name').focus();
         }
 
         function closeCreateProjectModal() {
-            document.getElementById('create-project-modal').style.display = 'none';
+            const modal = document.getElementById('create-project-modal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 200);
         }
 
         async function confirmCreateProject() {
@@ -96,6 +176,32 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', handlePromptButtonClick);
             checkForProject();
+
+            // Global drag detection for showing drop zones between shots
+            let dragCounter = 0;
+            document.addEventListener('dragenter', (e) => {
+                dragCounter++;
+                if (e.dataTransfer.types.includes('Files')) {
+                    document.body.classList.add('dragging-files');
+                }
+            });
+            document.addEventListener('dragleave', (e) => {
+                dragCounter--;
+                if (dragCounter <= 0 ||
+                    e.clientX <= 0 || e.clientY <= 0 ||
+                    e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+                    dragCounter = 0;
+                    document.body.classList.remove('dragging-files');
+                }
+            });
+            document.addEventListener('drop', (e) => {
+                dragCounter = 0;
+                document.body.classList.remove('dragging-files');
+            });
+            document.addEventListener('dragend', (e) => {
+                dragCounter = 0;
+                document.body.classList.remove('dragging-files');
+            });
         });
 
         function handlePromptButtonClick(event) {
@@ -129,27 +235,44 @@
         }
 
         function showSetupScreen() {
-            document.getElementById('setup-screen').style.display = 'flex';
             document.getElementById('main-interface').style.display = 'none';
-            // Show the "no project" card, hide the loading card
-            document.getElementById('setup-card-loading').style.display = 'none';
-            document.getElementById('setup-card-no-project').style.display = 'block';
+            document.getElementById('setup-screen').style.display = 'flex';
+            // Auto-expand the drawer and set placeholder name
+            document.getElementById('project-toggle-name').textContent = 'Open a Project';
+            document.querySelector('.app-bar').classList.add('drawer-open');
+            document.getElementById('app-bar-controls').style.display = 'none';
+            document.getElementById('close-project-btn').style.display = 'none';
+            loadRecentProjects();
+            activateOnboarding();
+            setTimeout(() => checkOnboardingTips(), 600);
         }
 
         function showMainInterface() {
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('main-interface').style.display = 'block';
-            document.getElementById('project-title').textContent = currentProject.name;
+            // Ensure skeleton is visible and shot-grid hidden when transitioning from setup screen
+            document.getElementById('skeleton-loading').style.display = 'block';
+            document.getElementById('shot-grid').style.display = 'none';
+            // Update app bar
+            document.getElementById('project-toggle-name').textContent = currentProject.name;
+            document.getElementById('app-bar-controls').style.display = '';
+            document.getElementById('close-project-btn').style.display = '';
+            closeProjectDrawer();
             const input = document.getElementById('manual-path-input');
             if (input && currentProject && currentProject.path) {
                 input.value = currentProject.path;
             }
+            deactivateOnboarding();
         }
 
         async function loadShots(rowId = null) {
             captureScroll(rowId);
-            document.getElementById('loading').style.display = 'block';
+            // Show skeleton loading, hide actual grid
+            document.getElementById('skeleton-loading').style.display = 'block';
             document.getElementById('shot-grid').style.display = 'none';
+
+            const skeletonStart = Date.now();
+            const MIN_SKELETON_TIME = 400; // Minimum time to show skeleton (ms)
 
             try {
                 const response = await fetch('/api/shots');
@@ -158,17 +281,39 @@
                 if (result.success) {
                     shots = result.data;
                     renderShots();
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('shot-grid').style.display = 'block';
-                    restoreScroll();
+
+                    // Ensure skeleton shows for minimum time to avoid jarring flash
+                    const elapsed = Date.now() - skeletonStart;
+                    const remaining = Math.max(0, MIN_SKELETON_TIME - elapsed);
+
+                    setTimeout(() => {
+                        document.getElementById('skeleton-loading').style.display = 'none';
+                        document.getElementById('shot-grid').style.display = 'block';
+                        restoreScroll();
+                        startLazyThumbnailLoading();
+                        checkOnboardingTips();
+
+                        // Trigger upload success animation if pending
+                        if (window.pendingUploadAnimation) {
+                            const { shotName, type } = window.pendingUploadAnimation;
+                            const thumbnail = document.querySelector(`#shot-row-${shotName} .drop-zone[ondragover*="${type}"] .preview-thumbnail`);
+                            if (thumbnail) {
+                                thumbnail.classList.add('upload-success');
+                                setTimeout(() => thumbnail.classList.remove('upload-success'), 700);
+                            }
+                            window.pendingUploadAnimation = null;
+                        }
+                    }, remaining);
+
                     loadReferenceImages();
                 } else {
                     showNotification(result.error || 'Failed to load shots', 'error');
+                    document.getElementById('skeleton-loading').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error loading shots:', error);
                 showNotification('Error loading shots', 'error');
-                document.getElementById('loading').style.display = 'none';
+                document.getElementById('skeleton-loading').style.display = 'none';
             }
         }
 
@@ -176,68 +321,113 @@
             const shotList = document.getElementById("shot-list");
             shotList.innerHTML = "";
 
-            const finalDropZone = document.createElement("div");
-            finalDropZone.className = "drop-between-rows final-drop new-shot-drop-zone";
-            finalDropZone.addEventListener("dragover", handleRowDragOver);
-            finalDropZone.addEventListener("drop", handleRowDrop);
-            finalDropZone.addEventListener("dragleave", handleRowDragLeave);
-            const finalBtn = document.createElement("button");
-            finalBtn.className = "green-button new-shot-btn inline-new-shot-btn";
-            finalBtn.textContent = "New Shot +";
-            finalBtn.addEventListener("click", () => {
-                addNewShotAfter(finalDropZone.getAttribute("data-after-shot"));
-            });
-            finalDropZone.appendChild(finalBtn);
-
-            const firstDropZone = document.createElement("div");
-            firstDropZone.className = "drop-between-rows first-drop";
-            firstDropZone.setAttribute("data-after-shot", "");
-            firstDropZone.addEventListener("dragover", handleRowDragOver);
-            firstDropZone.addEventListener("drop", handleRowDrop);
-            firstDropZone.addEventListener("dragleave", handleRowDragLeave);
-            const firstBtn = document.createElement("button");
-            firstBtn.className = "green-button new-shot-btn inline-new-shot-btn";
-            firstBtn.textContent = "New Shot +";
-            firstBtn.addEventListener("click", () => {
-                addNewShotAfter(firstDropZone.getAttribute("data-after-shot"));
-            });
-            firstDropZone.appendChild(firstBtn);
-
             if (shots.length === 0) {
-                finalDropZone.classList.add("empty-state");
-                finalDropZone.setAttribute("data-after-shot", "");
-                shotList.appendChild(finalDropZone);
+                const emptyState = document.createElement("div");
+                emptyState.className = "empty-shots-state";
+                emptyState.innerHTML = `
+                    <p>No shots yet.</p>
+                    <button class="btn btn-primary" onclick="addNewShotAfter(null)">Create First Shot</button>
+                `;
+                // Add drop zone for empty state
+                emptyState.addEventListener("dragover", (e) => handleDropZoneDragOver(e, null));
+                emptyState.addEventListener("dragleave", handleDropZoneDragLeave);
+                emptyState.addEventListener("drop", (e) => handleDropZoneDrop(e, null));
+                shotList.appendChild(emptyState);
                 return;
             }
 
+            // Add drop zone before first shot
+            const firstDropZone = createDropBetweenZone(null);
             shotList.appendChild(firstDropZone);
 
             shots.forEach((shot, index) => {
                 const shotRow = createShotRow(shot);
                 shotList.appendChild(shotRow);
 
-                if (index < shots.length - 1) {
-                    const dropBetween = document.createElement("div");
-                    dropBetween.className = "drop-between-rows";
-                    dropBetween.setAttribute("data-after-shot", shot.name);
-                    dropBetween.addEventListener("dragover", handleRowDragOver);
-                    dropBetween.addEventListener("drop", handleRowDrop);
-                    dropBetween.addEventListener("dragleave", handleRowDragLeave);
-                    const btn = document.createElement("button");
-                    btn.className = "green-button new-shot-btn inline-new-shot-btn";
-                    btn.textContent = "New Shot +";
-                    btn.addEventListener("click", () => {
-                        addNewShotAfter(dropBetween.getAttribute("data-after-shot"));
-                    });
-                    dropBetween.appendChild(btn);
-                    shotList.appendChild(dropBetween);
-                }
+                // Add drop zone after each shot
+                const dropZone = createDropBetweenZone(shot.name);
+                shotList.appendChild(dropZone);
             });
 
-            finalDropZone.setAttribute("data-after-shot", shots[shots.length - 1].name);
-            shotList.appendChild(finalDropZone);
-
             restoreScroll();
+        }
+
+        function createDropBetweenZone(afterShotName) {
+            const zone = document.createElement("div");
+            zone.className = "drop-between-zone";
+            zone.setAttribute("data-after-shot", afterShotName || "");
+
+            // Add insert button
+            const insertBtn = document.createElement("button");
+            insertBtn.className = "between-insert-btn";
+            insertBtn.title = "Insert new shot";
+            insertBtn.textContent = "+";
+            insertBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                addNewShotAfter(afterShotName);
+            });
+            zone.appendChild(insertBtn);
+
+            zone.addEventListener("dragover", (e) => handleDropZoneDragOver(e, afterShotName));
+            zone.addEventListener("dragleave", handleDropZoneDragLeave);
+            zone.addEventListener("drop", (e) => handleDropZoneDrop(e, afterShotName));
+            return zone;
+        }
+
+        function handleDropZoneDragOver(event, afterShotName) {
+            event.preventDefault();
+            const types = event.dataTransfer.types;
+            if (types && Array.from(types).includes('Files')) {
+                event.currentTarget.classList.add('drag-over');
+            }
+        }
+
+        function handleDropZoneDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        async function handleDropZoneDrop(event, afterShotName) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+
+            const files = event.dataTransfer.files;
+            if (files.length === 0) return;
+
+            try {
+                // Create new shot
+                const response = await fetch('/api/shots/create-between', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ after_shot: afterShotName || null })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const newShot = result.data;
+                    showNotification(`Shot ${newShot.name} created`);
+
+                    // Upload the file to the new shot
+                    const file = files[0];
+                    const fileType = getFileType(file.name);
+
+                    if (fileType) {
+                        await uploadFile(file, newShot.name, fileType);
+                    } else {
+                        showNotification('Unsupported file type', 'error');
+                        loadShots(`shot-row-${newShot.name}`);
+                    }
+                } else {
+                    if (result.error && result.error.includes('shot number would exceed 999')) {
+                        showShotLimitModal();
+                    } else {
+                        showNotification(result.error || 'Failed to create shot', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error creating shot:', error);
+                showNotification('Error creating shot', 'error');
+            }
         }
 
         function createShotRow(shot) {
@@ -250,6 +440,12 @@
             if (isCollapsed) {
                 row.classList.add('collapsed');
             }
+
+            // Check if shot is empty (no image and no video)
+            const isEmpty = shot.image.version === 0 && shot.video.version === 0;
+            const deleteBtn = isEmpty
+                ? `<button class="shot-action-btn delete-btn" onclick="deleteShot('${shot.name}')" title="Delete empty shot"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>`
+                : '';
 
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
@@ -269,6 +465,7 @@
                         <span class="collapse-arrow">▼</span>
                     </button>
                 </div>
+                ${deleteBtn ? `<div class="shot-action-buttons">${deleteBtn}</div>` : ''}
             `;
 
             return row;
@@ -280,22 +477,42 @@
 
             if (hasFile) {
                 const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
-                const thumbnailStyle = thumbnailUrl ? 
-                    `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` : 
-                    'background: #404040;';
+                const needsLazyLoad = file.version > 0 && !file.thumbnail;
+                const thumbnailStyle = thumbnailUrl ?
+                    `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
+                    'background: var(--color-bg-hover);';
 
-            
+                // Add video preview attributes for video thumbnails
+                const videoAttrs = type === 'video' && file.file ?
+                    `data-video-src="${file.file}" onmouseenter="showVideoPreview(this)" onmouseleave="hideVideoPreview(this)"` : '';
+
+                // Build version dropdown items (newest first)
+                let versionItems = '';
+                for (let v = file.version; v >= 1; v--) {
+                    const isCurrent = v === file.version;
+                    versionItems += `<div class="version-dropdown-item${isCurrent ? ' current' : ''}"
+                                         data-shot="${shot.name}"
+                                         data-type="${type}"
+                                         data-version="${v}"
+                                         onclick="selectVersion(event, '${shot.name}', '${type}', ${v})">v${String(v).padStart(3, '0')}</div>`;
+                }
+
                 return `
                     <div class="drop-zone"
                          ondragover="handleDragOver(event, '${type}')"
                          ondrop="handleDrop(event, '${shot.name}', '${type}')"
                          ondragleave="handleDragLeave(event)">
                         <div class="file-preview">
-                            <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}"
+                            <div class="preview-thumbnail ${type === 'video' ? 'video-thumbnail' : ''}${needsLazyLoad ? ' loading' : ''}"
                                 style="${thumbnailStyle}"
+                                ${needsLazyLoad ? `data-lazy-thumb="true" data-shot="${shot.name}" data-asset-type="${type}"` : ''}
+                                ${videoAttrs}
                                 onclick="revealFile('${file.file}', '${shot.name}', '${type}')"></div>
 
-                            <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
+                            <div class="version-dropdown-container">
+                                <div class="version-badge" onclick="toggleShotVersionDropdown(event, this)">v${String(file.version).padStart(3, '0')}</div>
+                                <div class="version-dropdown-menu">${versionItems}</div>
+                            </div>
                             <button class="prompt-button"
                                     title="View and edit prompt"
                                     data-shot="${shot.name}"
@@ -312,7 +529,10 @@
                          ondrop="handleDrop(event, '${shot.name}', '${type}')"
                          ondragleave="handleDragLeave(event)">
                         <div class="drop-placeholder">
-                            <div class="text">Add ${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                            ${type === 'image'
+                                ? '<svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>'
+                                : '<svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>'
+                            }
                         </div>
                     </div>
                 `;
@@ -328,13 +548,14 @@
                 const label = part.charAt(0).toUpperCase() + part.slice(1);
                 if (hasFile) {
                     const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
+                    const needsLazyLoad = file.version > 0 && !file.thumbnail;
                     const thumbnailStyle = thumbnailUrl ?
                         `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
-                        'background: #404040;';
+                        'background: var(--color-bg-hover);';
                     html += `
                         <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
                             <div class="file-preview lipsync-preview">
-                                <div class="preview-thumbnail lipsync-thumbnail" data-label="${label}" style="${thumbnailStyle}" onclick="revealFile('${file.file}')"></div>
+                                <div class="preview-thumbnail lipsync-thumbnail${needsLazyLoad ? ' loading' : ''}" data-label="${label}" style="${thumbnailStyle}" ${needsLazyLoad ? `data-lazy-thumb="true" data-shot="${shot.name}" data-asset-type="${part}"` : ''} onclick="revealFile('${file.file}')"></div>
                                 <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
                                 <button class="prompt-button" title="View and edit prompt"
                                         data-shot="${shot.name}"
@@ -413,6 +634,32 @@
             }
         }
 
+        async function deleteShot(shotName) {
+            try {
+                const response = await fetch('/api/shots/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ shot_name: shotName })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const index = shots.findIndex(s => s.name === shotName);
+                    if (index !== -1) {
+                        shots.splice(index, 1);
+                    }
+                    renderShots();
+                    showNotification(`Shot ${shotName} deleted`);
+                } else {
+                    showNotification(result.error || 'Failed to delete shot', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting shot:', error);
+                showNotification('Error deleting shot', 'error');
+            }
+        }
+
         // Drag and drop handlers
         function handleDragOver(event, fileType) {
             event.preventDefault();
@@ -455,6 +702,8 @@
 
                 if (result.success) {
                     showNotification(`${file.name} uploaded successfully!`);
+                    // Store upload target for animation after reload
+                    window.pendingUploadAnimation = { shotName, type: fileType };
                     loadShots(`shot-row-${shotName}`); // Refresh and keep scroll
                 } else {
                     showNotification(result.error || 'Upload failed', 'error');
@@ -492,71 +741,6 @@
             }
             window.scrollTo({ top: savedScrollY });
             savedRowId = null;
-        }
-
-        // Drag and drop handlers for rows
-        function handleRowDragOver(event) {
-            event.preventDefault();
-
-            // Some browsers do not populate `dataTransfer.files` during
-            // `dragover`, so check the types list instead. If it includes
-            // "Files", we assume a file is being dragged and show the marker.
-            const types = event.dataTransfer.types;
-            if (types && Array.from(types).includes('Files')) {
-                event.currentTarget.classList.add('drag-over', 'new-shot-drop-zone');
-            }
-        }
-
-        function handleRowDragLeave(event) {
-            event.currentTarget.classList.remove('drag-over', 'new-shot-drop-zone');
-        }
-
-        async function handleRowDrop(event) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('drag-over', 'new-shot-drop-zone');
-
-            const files = event.dataTransfer.files;
-            if (files.length === 0) return;
-
-            const afterShot = event.currentTarget.getAttribute('data-after-shot');
-
-            try {
-                // Create new shot
-                const response = await fetch('/api/shots/create-between', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        after_shot: afterShot || null
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    const newShot = result.data;
-                    showNotification(`Shot ${newShot.name} created`);
-
-                    // Upload the file to the new shot
-                    const file = files[0];
-                    const fileType = getFileType(file.name);
-
-                    if (fileType) {
-                        await uploadFile(file, newShot.name, fileType);
-                    } else {
-                        showNotification('Unsupported file type', 'error');
-                        loadShots(`shot-row-${newShot.name}`); // Still refresh to show the new shot
-                    }
-                } else {
-                    if (result.error && result.error.includes('shot number would exceed 999')) {
-                        showShotLimitModal();
-                    } else {
-                        showNotification(result.error || 'Failed to create shot', 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Error creating shot:', error);
-                showNotification('Error creating shot', 'error');
-            }
         }
 
         function getFileType(filename) {
@@ -612,11 +796,71 @@
         }
 
 function editShotName(element, currentName) {
-    const newName = prompt('Enter new shot name', currentName);
-    if (!newName || newName === currentName) {
+    // Prevent editing if already in edit mode
+    if (element.querySelector('.shot-name-input')) {
         return;
     }
-    renameShot(currentName, newName);
+
+    // Store original text and clear element
+    const originalText = element.textContent;
+    element.textContent = '';
+
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'shot-name-input';
+    input.value = currentName;
+
+    // Add input to element
+    element.appendChild(input);
+
+    // Focus and select all text
+    input.focus();
+    input.select();
+
+    // Track if we've already processed the edit (to prevent double-save)
+    let editProcessed = false;
+
+    function saveEdit() {
+        if (editProcessed) return;
+        editProcessed = true;
+
+        const newName = input.value.trim();
+        element.textContent = newName || originalText;
+
+        // Update onclick to use new name
+        if (newName && newName !== currentName) {
+            element.setAttribute('onclick', `editShotName(this, '${newName}')`);
+            renameShot(currentName, newName);
+        }
+    }
+
+    function cancelEdit() {
+        if (editProcessed) return;
+        editProcessed = true;
+        element.textContent = originalText;
+    }
+
+    // Handle Enter and Escape keys
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+
+    // Save on blur (clicking outside)
+    input.addEventListener('blur', () => {
+        // Small delay to allow keydown handlers to fire first
+        setTimeout(() => {
+            if (!editProcessed) {
+                saveEdit();
+            }
+        }, 0);
+    });
 }
 
 async function renameShot(oldName, newName) {
@@ -764,11 +1008,18 @@ async function openPromptModal(shotName, assetType, version) {
     document.getElementById('prompt-text').value = prompt;
 
     modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+    });
     document.getElementById('prompt-text').focus();
 }
 
 function closePromptModal() {
-    document.getElementById('prompt-modal').style.display = 'none';
+    const modal = document.getElementById('prompt-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 200);
 }
 function copyToNewPromptVersion() {
     const modal = document.getElementById('prompt-modal');
@@ -831,11 +1082,19 @@ async function openShotsFolder() {
 }
 
 function showShotLimitModal() {
-    document.getElementById('shot-limit-modal').style.display = 'flex';
+    const modal = document.getElementById('shot-limit-modal');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+    });
 }
 
 function closeShotLimitModal() {
-    document.getElementById('shot-limit-modal').style.display = 'none';
+    const modal = document.getElementById('shot-limit-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 200);
 }
 
 // Settings Modal Functions
@@ -849,32 +1108,86 @@ async function loadSettings() {
         const result = await response.json();
         if (result.success && result.settings) {
             currentSettings = result.settings;
+            // Validate theme against known values, fallback to default
+            const validThemes = ['default', 'cinema-gold', 'midnight-blue', 'coral-sunset', 'ocean-depths'];
+            if (!validThemes.includes(currentSettings.color_theme)) {
+                currentSettings.color_theme = 'default';
+            }
+            // Apply saved theme and mode
+            applyTheme(currentSettings.color_theme);
+            applyMode(currentSettings.color_mode || 'dark');
         }
     } catch (e) {
         console.error('Failed to load settings:', e);
     }
 }
 
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+}
+
+function previewTheme(theme) {
+    applyTheme(theme);
+}
+
+function applyMode(mode) {
+    document.documentElement.setAttribute('data-mode', mode);
+    const toggle = document.getElementById('mode-toggle');
+    if (toggle) {
+        toggle.querySelector('.mode-icon-dark').style.display = mode === 'light' ? 'none' : '';
+        toggle.querySelector('.mode-icon-light').style.display = mode === 'light' ? '' : 'none';
+    }
+}
+
+function toggleColorMode() {
+    const current = document.documentElement.getAttribute('data-mode') || 'dark';
+    const newMode = current === 'dark' ? 'light' : 'dark';
+    applyMode(newMode);
+    currentSettings.color_mode = newMode;
+    fetch('/api/settings/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color_mode: newMode })
+    });
+}
+
 async function openSettingsModal() {
     // Load current settings first
     await loadSettings();
 
-    // Set the dropdown value
-    const dropdown = document.getElementById('thumbnail-click-behavior');
-    dropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
+    // Set the dropdown values
+    const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
+    thumbnailDropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
 
-    // Show the modal
-    document.getElementById('settings-modal').style.display = 'flex';
+    const themeDropdown = document.getElementById('color-theme');
+    themeDropdown.value = currentSettings.color_theme || 'default';
+
+    // Show the modal with animation
+    const modal = document.getElementById('settings-modal');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+    });
 }
 
 function closeSettingsModal() {
-    document.getElementById('settings-modal').style.display = 'none';
+    // Revert to saved theme if cancelled
+    applyTheme(currentSettings.color_theme || 'default');
+
+    const modal = document.getElementById('settings-modal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 200);
 }
 
 async function saveSettings() {
-    const dropdown = document.getElementById('thumbnail-click-behavior');
+    const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
+    const themeDropdown = document.getElementById('color-theme');
     const newSettings = {
-        thumbnail_click_behavior: dropdown.value
+        thumbnail_click_behavior: thumbnailDropdown.value,
+        color_theme: themeDropdown.value,
+        color_mode: currentSettings.color_mode || 'dark'
     };
 
     try {
@@ -886,7 +1199,8 @@ async function saveSettings() {
         const result = await response.json();
 
         if (result.success) {
-            currentSettings = result.settings;
+            // Merge new settings with server response to ensure color_theme persists
+            currentSettings = { ...result.settings, ...newSettings };
             showNotification('Settings saved successfully', 'success');
             closeSettingsModal();
         } else {
@@ -898,7 +1212,175 @@ async function saveSettings() {
     }
 }
 
-// Load settings on page load
+window.refreshThumbnails = async function() {
+    if (!confirm('This will regenerate all thumbnails for the current project. This may take a while. Continue?')) {
+        return;
+    }
+
+    closeSettingsModal();
+    showNotification('Refreshing thumbnails...', 'info');
+
+    try {
+        const response = await fetch('/api/shots/refresh-thumbnails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification(result.message, 'success');
+            // Reload shots to show new thumbnails
+            loadShots();
+        } else {
+            showNotification(result.error || 'Failed to refresh thumbnails', 'error');
+        }
+    } catch (e) {
+        console.error('Failed to refresh thumbnails:', e);
+        showNotification('Failed to refresh thumbnails', 'error');
+    }
+};
+
+// ===== SHOT ROW VERSION DROPDOWN =====
+
+function toggleShotVersionDropdown(event, badgeElement) {
+    event.stopPropagation();
+
+    const container = badgeElement.parentElement;
+    const menu = container.querySelector('.version-dropdown-menu');
+
+    // Close all other open dropdowns first
+    document.querySelectorAll('.version-dropdown-menu.show').forEach(m => {
+        if (m !== menu) m.classList.remove('show');
+    });
+
+    menu.classList.toggle('show');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.version-dropdown-container')) {
+        document.querySelectorAll('.version-dropdown-menu.show').forEach(m => {
+            m.classList.remove('show');
+        });
+    }
+});
+
+async function selectVersion(event, shotName, assetType, selectedVersion) {
+    event.stopPropagation();
+
+    const dropdownItem = event.target.closest('.version-dropdown-item');
+    const container = dropdownItem.closest('.version-dropdown-container');
+    const badge = container.querySelector('.version-badge');
+    const menu = container.querySelector('.version-dropdown-menu');
+    const filePreview = container.closest('.file-preview');
+    const thumbnail = filePreview.querySelector('.preview-thumbnail');
+
+    // Close the dropdown
+    menu.classList.remove('show');
+
+    // Update badge immediately
+    badge.textContent = `v${String(selectedVersion).padStart(3, '0')}`;
+
+    // Update dropdown item styles
+    menu.querySelectorAll('.version-dropdown-item').forEach(item => {
+        item.classList.remove('current');
+    });
+    dropdownItem.classList.add('current');
+
+    // Clear thumbnail immediately to show it's loading
+    thumbnail.style.backgroundImage = 'none';
+
+    try {
+        const response = await fetch('/api/shots/restore-version', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shot_name: shotName,
+                asset_type: assetType,
+                version: selectedVersion
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Force reload thumbnail with cache-busting
+            if (result.thumbnail) {
+                const img = new Image();
+                img.onload = () => {
+                    thumbnail.style.backgroundImage = `url('${result.thumbnail}?t=${Date.now()}')`;
+                };
+                img.src = `${result.thumbnail}?t=${Date.now()}`;
+            }
+
+            // For videos, update the preview source with cache buster
+            if (assetType === 'video' && result.file_path) {
+                thumbnail.dataset.videoSrc = result.file_path;
+                thumbnail.dataset.videoCacheBuster = Date.now();
+
+                // If video preview is currently playing, refresh it
+                const existingPreview = thumbnail.querySelector('.video-preview-container');
+                if (existingPreview) {
+                    hideVideoPreview(thumbnail);
+                    showVideoPreview(thumbnail);
+                }
+            }
+
+            showNotification(`Restored v${String(selectedVersion).padStart(3, '0')} to Latest folder`);
+        } else {
+            showNotification(result.error || 'Failed to restore version', 'error');
+        }
+    } catch (error) {
+        console.error('Error restoring version:', error);
+        showNotification('Error restoring version', 'error');
+    }
+}
+
+// ===== VIDEO PREVIEW ON HOVER =====
+
+window.showVideoPreview = function(element) {
+    const videoSrc = element.dataset.videoSrc;
+    if (!videoSrc) return;
+
+    // Create video preview container
+    const container = document.createElement('div');
+    container.className = 'video-preview-container';
+
+    const video = document.createElement('video');
+    video.className = 'video-preview';
+
+    // Add cache buster to force reload after version changes
+    const cacheBuster = element.dataset.videoCacheBuster || '';
+    const cacheParam = cacheBuster ? `&t=${cacheBuster}` : '';
+    video.src = `/api/shots/serve-video?path=${encodeURIComponent(videoSrc)}${cacheParam}`;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+
+    container.appendChild(video);
+    element.appendChild(container);
+
+    // Start playing when video is ready
+    video.play().catch(err => {
+        console.warn('Video autoplay failed:', err);
+    });
+};
+
+window.hideVideoPreview = function(element) {
+    const container = element.querySelector('.video-preview-container');
+    if (container) {
+        const video = container.querySelector('video');
+        if (video) {
+            video.pause();
+            video.src = ''; // Stop loading
+        }
+        container.remove();
+    }
+};
+
+// Apply default theme and mode immediately, then load saved settings
+applyTheme('default');
+applyMode('dark');
 loadSettings();
 
 // Toggle shot collapse/expand
@@ -908,8 +1390,19 @@ async function toggleShotCollapse(shotName) {
 
     const isCurrentlyCollapsed = row.classList.contains('collapsed');
 
-    // Toggle the collapsed class
-    row.classList.toggle('collapsed');
+    if (isCurrentlyCollapsed) {
+        // Expanding: add expanding class, remove collapsed, then clean up after animation
+        row.classList.add('expanding');
+        row.classList.remove('collapsed');
+
+        // Remove expanding class after animation completes (0.2s fade delay + 0.5s animation)
+        setTimeout(() => {
+            row.classList.remove('expanding');
+        }, 700);
+    } else {
+        // Collapsing: just add collapsed class (CSS animation handles the rest)
+        row.classList.add('collapsed');
+    }
 
     // Update the collapsed_shots array
     if (!currentSettings.collapsed_shots) {
@@ -1169,59 +1662,365 @@ async function revealRefImage(filename) {
     }
 }
 
-// Server Restart Functionality
-async function restartServer() {
-    try {
-        showNotification('Restarting server...', 'success');
-        closeSettingsModal();
+// ===== LAZY THUMBNAIL LOADING =====
 
-        // Call the restart endpoint
-        await fetch('/api/settings/restart', {
+// Track if batch loading is in progress
+let batchLoadingInProgress = false;
+
+async function loadAllMissingThumbnails() {
+    // Collect all thumbnails that need loading
+    const lazyThumbs = document.querySelectorAll('[data-lazy-thumb="true"]');
+
+    if (lazyThumbs.length === 0 || batchLoadingInProgress) {
+        return;
+    }
+
+    batchLoadingInProgress = true;
+
+    // Build batch request
+    const items = [];
+    const elementMap = new Map(); // key -> element
+
+    lazyThumbs.forEach(el => {
+        const shotName = el.dataset.shot;
+        const assetType = el.dataset.assetType;
+        const key = `${shotName}-${assetType}`;
+
+        items.push({ shot_name: shotName, asset_type: assetType });
+        elementMap.set(key, el);
+    });
+
+    try {
+        const response = await fetch('/api/shots/generate-thumbnails-batch', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
         });
 
-        // Wait longer for the server to fully shut down and start back up
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        const result = await response.json();
 
-        // Poll the server until it's back up
-        showNotification('Waiting for server to restart...', 'success');
-        await waitForServer();
-
-        // Refresh the page once the server is back
-        showNotification('Server restarted! Refreshing...', 'success');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        window.location.reload();
-    } catch (error) {
-        console.error('Restart failed:', error);
-        showNotification('Failed to restart server', 'error');
-    }
-}
-
-async function waitForServer(maxAttempts = 60) {
-    /**
-     * Poll the server until it responds, up to maxAttempts times.
-     * Each attempt waits 1 second between polls.
-     */
-    for (let i = 0; i < maxAttempts; i++) {
-        try {
-            const response = await fetch('/api/project/current', {
-                method: 'GET',
-                cache: 'no-cache'
-            });
-
-            // If we get any response, the server is back
-            if (response.ok || response.status === 400) {
-                return true;
+        if (result.success && result.thumbnails) {
+            // Apply all thumbnails
+            for (const [key, thumbnailUrl] of Object.entries(result.thumbnails)) {
+                const element = elementMap.get(key);
+                if (element && thumbnailUrl) {
+                    element.style.backgroundImage = `url('${thumbnailUrl}?v=${Date.now()}')`;
+                    element.style.backgroundSize = 'cover';
+                    element.style.backgroundPosition = 'center';
+                    element.classList.remove('loading');
+                    element.removeAttribute('data-lazy-thumb');
+                }
             }
-        } catch (error) {
-            // Server not ready yet, continue polling
-        }
 
-        // Wait 1 second before next attempt
-        await new Promise(resolve => setTimeout(resolve, 1000));
+            // Remove loading state from any remaining elements (no thumbnail available)
+            lazyThumbs.forEach(el => {
+                if (el.hasAttribute('data-lazy-thumb')) {
+                    el.classList.remove('loading');
+                    el.removeAttribute('data-lazy-thumb');
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load thumbnails batch:', error);
+        // Remove loading state on error
+        lazyThumbs.forEach(el => el.classList.remove('loading'));
+    } finally {
+        batchLoadingInProgress = false;
+    }
+}
+
+// Call this after rendering shots
+function startLazyThumbnailLoading() {
+    // Small delay to let the UI render first, then load all thumbnails
+    setTimeout(() => loadAllMissingThumbnails(), 50);
+}
+
+// ===== ONBOARDING TIPS =====
+
+const ONBOARDING_TIPS = [
+    {
+        id: 'tip-project',
+        text: 'Start by opening an existing project or creating a new one. Enter a folder path and hit Open.',
+        target: '#project-toggle',
+        placement: 'bottom',
+        condition: () => !currentProject,
+    },
+    {
+        id: 'tip-create-shot',
+        text: 'Create your first shot to get started. You can also drag & drop a file anywhere here.',
+        target: '.empty-shots-state .btn-primary',
+        placement: 'bottom',
+        condition: () => currentProject && shots.length === 0,
+    },
+    {
+        id: 'tip-upload-asset',
+        text: 'Drag an image or video onto these areas, or click to browse. Each shot has an image and video slot.',
+        target: '.shot-row .drop-zone.empty',
+        placement: 'bottom',
+        condition: () => shots.length > 0 && document.querySelector('.shot-row .drop-zone.empty'),
+    },
+    {
+        id: 'tip-notes',
+        text: 'Add production notes for each shot. Notes are saved automatically when you click away.',
+        target: '.shot-row .notes-input',
+        placement: 'left',
+        condition: () => shots.length > 0 && document.querySelector('.shot-row .notes-input'),
+    },
+    {
+        id: 'tip-locate',
+        text: 'Click any thumbnail to open the file in your file browser.',
+        target: '.preview-thumbnail',
+        placement: 'bottom',
+        condition: () => document.querySelector('.preview-thumbnail'),
+    },
+    {
+        id: 'tip-insert-between',
+        text: 'Hover below or above shots to reveal the + button. Click it to insert a new shot at that position.',
+        target: '.drop-between-zone',
+        placement: 'bottom',
+        condition: () => shots.length >= 1 && document.querySelector('.drop-between-zone'),
+    },
+    {
+        id: 'tip-prompt',
+        text: 'Click the P button on any asset to write or view prompts for that asset.',
+        target: '.prompt-button',
+        placement: 'top',
+        condition: () => document.querySelector('.prompt-button'),
+    },
+    {
+        id: 'tip-reference',
+        text: 'Open the reference panel to pin inspiration images. Drag images here or click + Add Image.',
+        target: '#sidebar-toggle',
+        placement: 'left',
+        condition: () => currentProject !== null,
+    },
+];
+
+const ONBOARDING_STORAGE_KEY = 'shotbuddy_onboarding';
+
+function getOnboardingState() {
+    try {
+        const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+        return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function activateOnboarding() {
+    if (!getOnboardingState()) {
+        saveOnboardingState({ activated: true, dismissed: [] });
+    }
+}
+
+function deactivateOnboarding() {
+    if (!getOnboardingState()) {
+        saveOnboardingState({ activated: false, dismissed: [] });
+    }
+}
+
+function saveOnboardingState(state) {
+    try {
+        localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn('Could not save onboarding state:', e);
+    }
+}
+
+function getNextTip() {
+    const state = getOnboardingState();
+    if (!state || !state.activated) return null;
+    for (const tip of ONBOARDING_TIPS) {
+        if (state.dismissed.includes(tip.id)) continue;
+        if (tip.condition && !tip.condition()) continue;
+        const targetEl = document.querySelector(tip.target);
+        if (!targetEl) continue;
+        if (targetEl.offsetParent === null && getComputedStyle(targetEl).position !== 'fixed') continue;
+        return tip;
+    }
+    return null;
+}
+
+function showOnboardingTip(tip) {
+    const tipEl = document.getElementById('onboarding-tip');
+    const textEl = document.getElementById('onboarding-tip-text');
+    const stepEl = document.getElementById('onboarding-tip-step');
+    const targetEl = document.querySelector(tip.target);
+
+    if (!tipEl || !textEl || !targetEl) return;
+
+    // Remove previous highlight
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+
+    // Set content
+    textEl.textContent = tip.text;
+
+    // Store current tip id
+    tipEl.dataset.tipId = tip.id;
+    tipEl.dataset.placement = tip.placement;
+
+    // Add highlight to target
+    targetEl.classList.add('onboarding-highlight');
+
+    // Position the tip
+    tipEl.style.display = 'block';
+    positionTip(tipEl, targetEl, tip.placement);
+
+    // Show with animation
+    requestAnimationFrame(() => {
+        tipEl.classList.add('show');
+    });
+}
+
+function positionTip(tipEl, targetEl, placement) {
+    const rect = targetEl.getBoundingClientRect();
+    const tipWidth = 280;
+    const tipHeight = tipEl.offsetHeight;
+    const gap = 12;
+    const arrowOffsetH = 24; // arrow's left offset for top/bottom placements
+    const arrowOffsetV = 16; // arrow's top offset for left/right placements
+    const targetCenterX = rect.left + rect.width / 2;
+    const targetCenterY = rect.top + rect.height / 2;
+
+    let top, left;
+
+    switch (placement) {
+        case 'bottom':
+            top = rect.bottom + gap;
+            left = targetCenterX - arrowOffsetH - 6; // center arrow (6 = half of 12px arrow)
+            break;
+        case 'top':
+            top = rect.top - gap - tipHeight;
+            left = targetCenterX - arrowOffsetH - 6;
+            break;
+        case 'left':
+            top = targetCenterY - arrowOffsetV - 6;
+            left = rect.left - tipWidth - gap;
+            break;
+        case 'right':
+            top = targetCenterY - arrowOffsetV - 6;
+            left = rect.right + gap;
+            break;
     }
 
-    throw new Error('Server did not restart in time');
+    // Clamp to viewport
+    left = Math.max(12, Math.min(left, window.innerWidth - tipWidth - 12));
+    top = Math.max(12, top);
+
+    tipEl.style.top = top + 'px';
+    tipEl.style.left = left + 'px';
 }
+
+function dismissOnboardingTip() {
+    const tipEl = document.getElementById('onboarding-tip');
+    if (!tipEl) return;
+
+    const tipId = tipEl.dataset.tipId;
+
+    // Hide with animation
+    tipEl.classList.remove('show');
+    setTimeout(() => {
+        tipEl.style.display = 'none';
+    }, 300);
+
+    // Remove highlight
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+
+    // Save dismissed state
+    if (tipId) {
+        const state = getOnboardingState();
+        if (!state.dismissed.includes(tipId)) {
+            state.dismissed.push(tipId);
+            saveOnboardingState(state);
+        }
+    }
+
+    // Auto-advance to next tip
+    setTimeout(() => {
+        checkOnboardingTips();
+    }, 800);
+}
+
+function skipAllOnboardingTips() {
+    const tipEl = document.getElementById('onboarding-tip');
+
+    // Mark all tips as dismissed
+    const state = { activated: true, dismissed: ONBOARDING_TIPS.map(t => t.id) };
+    saveOnboardingState(state);
+
+    // Hide current tip
+    if (tipEl) {
+        tipEl.classList.remove('show');
+        setTimeout(() => {
+            tipEl.style.display = 'none';
+        }, 300);
+    }
+
+    // Remove highlights
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+}
+
+function hideOnboardingTip() {
+    const tipEl = document.getElementById('onboarding-tip');
+    if (!tipEl) return;
+    tipEl.classList.remove('show');
+    setTimeout(() => {
+        tipEl.style.display = 'none';
+    }, 300);
+    document.querySelectorAll('.onboarding-highlight').forEach(el => {
+        el.classList.remove('onboarding-highlight');
+    });
+}
+
+function checkOnboardingTips() {
+    const tip = getNextTip();
+    if (tip) {
+        showOnboardingTip(tip);
+    } else {
+        hideOnboardingTip();
+    }
+}
+
+function resetOnboarding() {
+    saveOnboardingState({ activated: true, dismissed: [] });
+    showNotification('Quick-start tips reset. They will appear as you use the app.');
+    closeSettingsModal();
+    setTimeout(() => checkOnboardingTips(), 500);
+}
+
+// Reposition on resize/scroll
+let onboardingRepositionTimer = null;
+
+function repositionActiveTip() {
+    const tipEl = document.getElementById('onboarding-tip');
+    if (!tipEl || tipEl.style.display === 'none') return;
+
+    const tipId = tipEl.dataset.tipId;
+    const tip = ONBOARDING_TIPS.find(t => t.id === tipId);
+    if (!tip) return;
+
+    const targetEl = document.querySelector(tip.target);
+    if (!targetEl || targetEl.offsetParent === null) {
+        hideOnboardingTip();
+        return;
+    }
+
+    positionTip(tipEl, targetEl, tip.placement);
+}
+
+window.addEventListener('resize', () => {
+    clearTimeout(onboardingRepositionTimer);
+    onboardingRepositionTimer = setTimeout(repositionActiveTip, 100);
+});
+
+window.addEventListener('scroll', () => {
+    clearTimeout(onboardingRepositionTimer);
+    onboardingRepositionTimer = setTimeout(repositionActiveTip, 50);
+}, { passive: true });
 

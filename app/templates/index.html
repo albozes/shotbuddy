@@ -5,56 +5,131 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shotbuddy</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v={{ range(100000) | random }}">
 </head>
 <body>
-    <div class="menu-bar">
-        <div class="setup-panel">
-            <input
-                id="manual-path-input"
-                class="path-input"
-                type="text"
-                placeholder="Enter full path to project folder"
-            />
-            <button class="dark-button" onclick="loadProjectFromManualPath()">
-                Load Project from Path
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
+    <div class="app-bar">
+        <div class="app-bar-main">
+            <button class="project-toggle" id="project-toggle" onclick="toggleProjectDrawer()">
+                <span class="project-toggle-name" id="project-toggle-name">Open a Project</span>
+                <svg class="project-toggle-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
             </button>
-            <button class="dark-button" onclick="openCreateProjectModal()">
-                Create New Project at Path
-            </button>
-            <button class="dark-button" onclick="openSettingsModal()" title="Settings">Settings</button>
-        </div>
-    </div>
-
-    <!-- Setup Screen -->
-    <div id="setup-screen" class="setup-screen">
-        <div class="setup-card" id="setup-card-loading">
-            <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
-            <p style="margin-bottom: 30px; color: #b5b5b5;">Loading...</p>
-        </div>
-        <div class="setup-card" id="setup-card-no-project" style="display: none;">
-            <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
-            <p style="margin-bottom: 30px; color: #b5b5b5;">No project is currently open.</p>
-            <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Use the menu above to create a new project or open an existing one.</p>
-        </div>
-    </div>
-
-    <!-- Main Interface (hidden initially) -->
-    <div id="main-interface" style="display: none;">
-        <div class="header">
-            <h1 class="project-title" id="project-title">Loading...</h1>
-            <div class="header-controls">
+            <div class="app-bar-controls" id="app-bar-controls">
                 <button class="dark-button icon-button" onclick="openShotsFolder()" title="Open Project Shots Folder">
-                    <img src="{{ url_for('static', filename='icons/folder_24.png') }}" alt="Open Project Shots Folder" />
+                    <img src="{{ url_for('static', filename='icons/folder_24.png') }}" alt="Open Folder" />
                 </button>
-                <button class="green-button" onclick="addNewShot()">New Shot +</button>
+                <button class="dark-button icon-button" id="mode-toggle" onclick="toggleColorMode()" title="Toggle light/dark mode">
+                    <svg class="mode-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="mode-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+                <button class="dark-button icon-button" onclick="openSettingsModal()" title="Settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
             </div>
         </div>
+        <div class="project-drawer" id="project-drawer">
+            <div class="project-drawer-row">
+                <input
+                    id="manual-path-input"
+                    class="drawer-path-input"
+                    type="text"
+                    placeholder="Enter full path to project folder"
+                />
+                <button class="green-button" onclick="loadProjectFromManualPath()">Open</button>
+                <button class="dark-button" onclick="openCreateProjectModal()">Create New</button>
+                <button class="dark-button" id="close-project-btn" onclick="closeProject()" style="display:none;">Close</button>
+            </div>
+            <div class="recent-projects" id="recent-projects"></div>
+        </div>
+    </div>
 
+    <!-- Setup Screen (hidden by default - shown only if no project found) -->
+    <div id="setup-screen" class="setup-screen" style="display: none;">
+        <div class="setup-card" id="setup-card-no-project">
+            <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
+            <p style="margin-bottom: 30px; color: var(--color-text-secondary);">No project is currently open.</p>
+            <p style="margin-bottom: 20px; color: var(--color-text-tertiary); font-size: 14px;">Click the project dropdown above to open or create a project.</p>
+        </div>
+    </div>
+
+    <!-- Main Interface (visible by default - skeleton shows immediately) -->
+    <div id="main-interface">
         <div class="main-content-wrapper">
             <div class="container">
-                <div class="loading" id="loading">Loading shots...</div>
-                <div class="shot-grid" id="shot-grid" style="display: none;">
+                <!-- Skeleton loading state -->
+                <div class="skeleton-loading" id="skeleton-loading">
+                    <div class="shot-grid">
+                        <div class="grid-header">
+                            <div class="grid-header-cell">Shot Name</div>
+                            <div class="grid-header-cell">Image</div>
+                            <div class="grid-header-cell">Video</div>
+                            <div class="grid-header-cell">Notes</div>
+                            <div class="grid-header-cell collapse-header"></div>
+                        </div>
+                        <div class="skeleton-shots">
+                            <!-- Skeleton rows -->
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                            <div class="skeleton-row">
+                                <div class="skeleton-cell"><div class="skeleton-text skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-thumbnail skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"><div class="skeleton-notes skeleton-shimmer"></div></div>
+                                <div class="skeleton-cell"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="loading" id="loading" style="display: none;">Loading shots...</div>
+                <div class="shot-grid" id="shot-grid" tabindex="-1" style="display: none;">
+                    <main id="main-content">
                     <div class="grid-header">
                         <div class="grid-header-cell">Shot Name</div>
                         <div class="grid-header-cell">Image</div>
@@ -64,6 +139,7 @@
                         <div class="grid-header-cell collapse-header"></div>
                     </div>
                     <div id="shot-list"></div>
+                    </main>
                 </div>
             </div>
         </div>
@@ -100,6 +176,18 @@
 
     <!-- Notification -->
     <div id="notification" class="notification"></div>
+
+    <!-- Onboarding Tips -->
+    <div id="onboarding-tip" class="onboarding-tip" style="display: none;">
+        <div class="onboarding-tip-arrow"></div>
+        <div class="onboarding-tip-content">
+            <p class="onboarding-tip-text" id="onboarding-tip-text"></p>
+            <div class="onboarding-tip-actions">
+                <button class="btn btn-sm btn-primary" onclick="dismissOnboardingTip()">Got it</button>
+                <button class="onboarding-skip-all" onclick="skipAllOnboardingTips()">Skip all</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Create Project Modal -->
     <div id="create-project-modal" class="modal">
@@ -140,10 +228,10 @@
     <div id="shot-limit-modal" class="modal">
         <div class="modal-content">
             <h3 style="margin-bottom: 15px;">Project is Full</h3>
-            <p style="margin-bottom: 15px; color: #b5b5b5; line-height: 1.5;">
+            <p style="margin-bottom: 15px; color: var(--color-text-secondary); line-height: 1.5;">
                 This project has run out of available shot numbers.
             </p>
-            <p style="margin-bottom: 20px; color: #808080; font-size: 14px; line-height: 1.5;">
+            <p style="margin-bottom: 20px; color: var(--color-text-tertiary); font-size: 14px; line-height: 1.5;">
                 <strong>Suggestion:</strong> Consider splitting your project into individual sequences,
                 treating each sequence as a separate project within Shotbuddy. This will help you
                 organize your work better and give you room to grow.
@@ -159,7 +247,19 @@
         <div class="modal-content">
             <h3 style="margin-bottom: 20px;">Settings</h3>
             <div style="margin-bottom: 20px;">
-                <label for="thumbnail-click-behavior" style="display: block; margin-bottom: 8px; color: #e0e0e0;">
+                <label for="color-theme" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
+                    Color Theme:
+                </label>
+                <select id="color-theme" class="settings-dropdown" onchange="previewTheme(this.value)">
+                    <option value="default">Default</option>
+                    <option value="cinema-gold">Cinema Gold</option>
+                    <option value="midnight-blue">Midnight Blue</option>
+                    <option value="coral-sunset">Coral Sunset</option>
+                    <option value="ocean-depths">Ocean Depths</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label for="thumbnail-click-behavior" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
                     Clicking the thumbnail selects:
                 </label>
                 <select id="thumbnail-click-behavior" class="settings-dropdown">
@@ -167,9 +267,13 @@
                     <option value="version_folder">the latest version in the Shot's folder</option>
                 </select>
             </div>
-            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid #404040;">
-                <button class="restart-button" onclick="restartServer()">Restart Server</button>
-                <p style="margin-top: 8px; color: #808080; font-size: 12px;">Restarts Shotbuddy and refreshes the page</p>
+            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--color-border);">
+                <button class="dark-button" style="width: 100%;" onclick="refreshThumbnails()">Refresh Thumbnails</button>
+                <p style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">Regenerates all thumbnails for the current project</p>
+            </div>
+            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--color-border);">
+                <button class="dark-button" style="width: 100%;" onclick="resetOnboarding()">Reset Quick-Start Tips</button>
+                <p style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">Show the quick-start tips again</p>
             </div>
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>
@@ -179,9 +283,9 @@
     </div>
 
     <footer class='app-footer'>
-        Created by <a href="https://albertbozesan.com/">Albert Bozesan</a>
+        Shotbuddy is being developed by <a href="https://albertbozesan.com/">Albert Bozesan</a>
     </footer>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ range(100000) | random }}"></script>
 </body>
 </html>
     
