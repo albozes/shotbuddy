@@ -181,4 +181,15 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    app.run(debug=debug, host=host, port=port)
+    try:
+        app.run(debug=debug, host=host, port=port)
+    except OSError as e:
+        if "Address already in use" in str(e) or e.errno in (48, 98):
+            print(f"\nError: Port {port} is in use by another application.")
+            print(f"Please either:")
+            print(f"  1. Stop the other application using port {port}")
+            print(f"  2. Configure Shotbuddy to use a different port in shotbuddy.cfg")
+            print(f"  3. Set the SHOTBUDDY_PORT environment variable to use a different port")
+            sys.exit(1)
+        else:
+            raise
