@@ -1151,22 +1151,35 @@ function toggleColorMode() {
     });
 }
 
+function initThemeSwatches() {
+    const grid = document.getElementById('theme-swatch-grid');
+    if (!grid) return;
+    grid.addEventListener('click', function(e) {
+        const swatch = e.target.closest('.theme-swatch');
+        if (!swatch) return;
+        grid.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        previewTheme(swatch.dataset.theme);
+    });
+}
+
 async function openSettingsModal() {
-    // Load current settings first
     await loadSettings();
 
-    // Set the dropdown values
     const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
     thumbnailDropdown.value = currentSettings.thumbnail_click_behavior || 'version_folder';
 
-    const themeDropdown = document.getElementById('color-theme');
-    themeDropdown.value = currentSettings.color_theme || 'default';
+    // Set active theme swatch
+    const activeTheme = currentSettings.color_theme || 'default';
+    const grid = document.getElementById('theme-swatch-grid');
+    grid.querySelectorAll('.theme-swatch').forEach(s => {
+        s.classList.toggle('active', s.dataset.theme === activeTheme);
+    });
 
     const namingInput = document.getElementById('file-naming-pattern');
     namingInput.value = currentSettings.file_naming_pattern || '{shot}';
     updateNamingPreview();
 
-    // Show the modal with animation
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';
     requestAnimationFrame(() => {
@@ -1284,7 +1297,6 @@ async function executeApplyNaming() {
 
 async function saveSettings() {
     const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
-    const themeDropdown = document.getElementById('color-theme');
     const namingInput = document.getElementById('file-naming-pattern');
     const namingPattern = namingInput.value.trim() || '{shot}';
 
@@ -1293,9 +1305,12 @@ async function saveSettings() {
         return;
     }
 
+    const activeSwatch = document.querySelector('.theme-swatch.active');
+    const selectedTheme = activeSwatch ? activeSwatch.dataset.theme : 'default';
+
     const newSettings = {
         thumbnail_click_behavior: thumbnailDropdown.value,
-        color_theme: themeDropdown.value,
+        color_theme: selectedTheme,
         color_mode: currentSettings.color_mode || 'dark',
         file_naming_pattern: namingPattern
     };
@@ -1492,6 +1507,7 @@ window.hideVideoPreview = function(element) {
 applyTheme('default');
 applyMode('dark');
 loadSettings();
+initThemeSwatches();
 
 // Toggle shot collapse/expand
 async function toggleShotCollapse(shotName) {

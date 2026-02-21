@@ -245,57 +245,126 @@
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
-            <h3 style="margin-bottom: 20px;">Settings</h3>
-            <div style="margin-bottom: 20px;">
-                <label for="color-theme" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
-                    Color Theme:
-                </label>
-                <select id="color-theme" class="settings-dropdown" onchange="previewTheme(this.value)">
-                    <option value="default">Default</option>
-                    <option value="cinema-gold">Cinema Gold</option>
-                    <option value="midnight-blue">Midnight Blue</option>
-                    <option value="coral-sunset">Coral Sunset</option>
-                    <option value="ocean-depths">Ocean Depths</option>
-                </select>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label for="thumbnail-click-behavior" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
-                    Clicking the thumbnail selects:
-                </label>
-                <select id="thumbnail-click-behavior" class="settings-dropdown">
-                    <option value="latest_folder">the shot in the Latest folder (all shots)</option>
-                    <option value="version_folder">the latest version in the Shot's folder</option>
-                </select>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label for="file-naming-pattern" style="display: block; margin-bottom: 8px; color: var(--color-text-primary);">
-                    File Naming Pattern:
-                </label>
-                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                    <button type="button" class="dark-button" style="font-size: 12px; padding: 4px 8px;" onclick="insertNamingVar('{project}')">{project}</button>
-                    <button type="button" class="dark-button" style="font-size: 12px; padding: 4px 8px;" onclick="insertNamingVar('{shot}')">{shot}</button>
-                    <button type="button" class="dark-button" style="font-size: 12px; padding: 4px 8px;" onclick="insertNamingVar('{date}')">{date}</button>
+            <h3 class="settings-title">Settings</h3>
+
+            <!-- Appearance -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="13.5" cy="6.5" r="2.5"></circle>
+                        <circle cx="19" cy="13.5" r="2.5"></circle>
+                        <circle cx="13.5" cy="20.5" r="2.5"></circle>
+                        <circle cx="5" cy="13.5" r="2.5"></circle>
+                    </svg>
+                    <span>Appearance</span>
                 </div>
-                <input type="text" id="file-naming-pattern" class="settings-dropdown"
-                       style="width: 100%; box-sizing: border-box;"
-                       placeholder="{shot}" oninput="updateNamingPreview()">
-                <p id="naming-preview" style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">
-                    Preview: SH010_v001.jpg
-                </p>
-                <p style="margin-top: 4px; color: var(--color-text-tertiary); font-size: 11px;">
-                    Version and extension are added automatically. {shot} is required.
-                </p>
-                <button type="button" class="dark-button" style="width: 100%; margin-top: 12px; color: var(--color-error);"
-                        onclick="confirmApplyNaming()">Apply to Existing Files</button>
+                <div class="settings-field">
+                    <label class="settings-label">Color Theme</label>
+                    <div class="theme-swatch-grid" id="theme-swatch-grid">
+                        <button type="button" class="theme-swatch" data-theme="default" title="Default">
+                            <span class="swatch-color" style="background: #22c55e;"></span>
+                            <span class="swatch-label">Default</span>
+                        </button>
+                        <button type="button" class="theme-swatch" data-theme="cinema-gold" title="Cinema Gold">
+                            <span class="swatch-color" style="background: #f59e0b;"></span>
+                            <span class="swatch-label">Cinema Gold</span>
+                        </button>
+                        <button type="button" class="theme-swatch" data-theme="midnight-blue" title="Midnight Blue">
+                            <span class="swatch-color" style="background: #0ea5e9;"></span>
+                            <span class="swatch-label">Midnight Blue</span>
+                        </button>
+                        <button type="button" class="theme-swatch" data-theme="coral-sunset" title="Coral Sunset">
+                            <span class="swatch-color" style="background: #f87171;"></span>
+                            <span class="swatch-label">Coral Sunset</span>
+                        </button>
+                        <button type="button" class="theme-swatch" data-theme="ocean-depths" title="Ocean Depths">
+                            <span class="swatch-color" style="background: #14b8a6;"></span>
+                            <span class="swatch-label">Ocean Depths</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--color-border);">
-                <button class="dark-button" style="width: 100%;" onclick="refreshThumbnails()">Refresh Thumbnails</button>
-                <p style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">Regenerates all thumbnails for the current project</p>
+
+            <!-- Behavior -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span>Behavior</span>
+                </div>
+                <div class="settings-field">
+                    <label for="thumbnail-click-behavior" class="settings-label">Thumbnail Click Target</label>
+                    <p class="settings-hint">What gets selected when you click a shot thumbnail.</p>
+                    <select id="thumbnail-click-behavior" class="settings-dropdown">
+                        <option value="latest_folder">Latest version across all shots</option>
+                        <option value="version_folder">Latest version within the shot's folder</option>
+                    </select>
+                </div>
             </div>
-            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--color-border);">
-                <button class="dark-button" style="width: 100%;" onclick="resetOnboarding()">Reset Quick-Start Tips</button>
-                <p style="margin-top: 8px; color: var(--color-text-tertiary); font-size: 12px;">Show the quick-start tips again</p>
+
+            <!-- File Management -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <span>File Management</span>
+                </div>
+                <div class="settings-field">
+                    <label for="file-naming-pattern" class="settings-label">File Naming Pattern</label>
+                    <div class="naming-var-buttons">
+                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{project}')">{project}</button>
+                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{shot}')">{shot}</button>
+                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{date}')">{date}</button>
+                    </div>
+                    <input type="text" id="file-naming-pattern" class="settings-input"
+                           placeholder="{shot}" oninput="updateNamingPreview()">
+                    <p id="naming-preview" class="settings-hint naming-preview">Preview: SH010_v001.jpg</p>
+                    <p class="settings-hint">Version and extension are added automatically. <code>{shot}</code> is required.</p>
+                </div>
+                <div class="settings-field settings-danger-zone">
+                    <div class="danger-zone-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <span>Rename Existing Files</span>
+                    </div>
+                    <p class="settings-hint">Apply the current naming pattern to all existing files. This cannot be undone.</p>
+                    <button type="button" class="danger-button" onclick="confirmApplyNaming()">Apply to Existing Files</button>
+                </div>
             </div>
+
+            <!-- Maintenance -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                    </svg>
+                    <span>Maintenance</span>
+                </div>
+                <div class="settings-field settings-action-row">
+                    <div class="settings-action-info">
+                        <span class="settings-action-label">Refresh Thumbnails</span>
+                        <span class="settings-action-desc">Regenerate all thumbnails for the current project</span>
+                    </div>
+                    <button class="dark-button settings-action-btn" onclick="refreshThumbnails()">Refresh</button>
+                </div>
+                <div class="settings-field settings-action-row">
+                    <div class="settings-action-info">
+                        <span class="settings-action-label">Reset Quick-Start Tips</span>
+                        <span class="settings-action-desc">Show the quick-start tips again</span>
+                    </div>
+                    <button class="dark-button settings-action-btn" onclick="resetOnboarding()">Reset</button>
+                </div>
+            </div>
+
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>
                 <button class="dark-button" onclick="closeSettingsModal()">Cancel</button>

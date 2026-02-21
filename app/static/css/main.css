@@ -1838,6 +1838,285 @@
             box-shadow: 0 0 0 3px var(--color-accent-muted);
         }
 
+        /* ===== SETTINGS MODAL ===== */
+
+        #settings-modal .modal-content {
+            max-width: 480px;
+            width: 100%;
+            margin: 0 var(--space-5);
+            text-align: left;
+        }
+
+        .settings-title {
+            text-align: center;
+            margin-bottom: var(--space-6);
+        }
+
+        /* Section containers */
+        .settings-section {
+            margin-bottom: var(--space-5);
+            padding-bottom: var(--space-5);
+            border-bottom: 1px solid var(--color-border-subtle);
+        }
+
+        .settings-section:last-child,
+        .settings-section:has(+ .modal-buttons) {
+            border-bottom: none;
+            margin-bottom: var(--space-4);
+            padding-bottom: 0;
+        }
+
+        /* Section headers */
+        .settings-section-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: var(--space-4);
+            color: var(--color-text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .settings-section-header svg {
+            opacity: 0.6;
+            flex-shrink: 0;
+        }
+
+        /* Fields, labels, hints */
+        .settings-field {
+            margin-bottom: var(--space-4);
+        }
+
+        .settings-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--color-text-primary);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .settings-hint {
+            color: var(--color-text-tertiary);
+            font-size: 12px;
+            line-height: 1.4;
+            margin-bottom: 6px;
+        }
+
+        .settings-hint code {
+            background: var(--color-bg-hover);
+            padding: 1px 5px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+        }
+
+        /* Settings text input */
+        .settings-input {
+            width: 100%;
+            padding: var(--space-3);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-input);
+            color: var(--color-text-primary);
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-top: 0;
+            margin-bottom: 0;
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px var(--color-accent-muted);
+        }
+
+        /* Theme swatch grid */
+        .theme-swatch-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        .theme-swatch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: var(--space-2) 4px;
+            background: transparent;
+            border: 2px solid var(--color-border-subtle);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: border-color var(--transition-fast), background var(--transition-fast);
+        }
+
+        .theme-swatch:hover {
+            border-color: var(--color-border);
+            background: var(--color-bg-hover);
+        }
+
+        .theme-swatch.active {
+            border-color: var(--color-accent);
+            background: var(--color-accent-muted);
+        }
+
+        .swatch-color {
+            display: block;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+            transition: transform var(--transition-spring);
+        }
+
+        .theme-swatch:hover .swatch-color {
+            transform: scale(1.1);
+        }
+
+        .theme-swatch.active .swatch-color {
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--color-bg-elevated), 0 0 0 4px var(--color-accent);
+        }
+
+        .swatch-label {
+            font-size: 9px;
+            color: var(--color-text-tertiary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            text-align: center;
+            transition: color var(--transition-fast);
+        }
+
+        .theme-swatch.active .swatch-label {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        /* Naming variable insert buttons */
+        .naming-var-buttons {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+
+        .naming-var-btn {
+            font-size: 11px;
+            padding: 3px 8px;
+            background: var(--color-bg-hover);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-family: monospace;
+            transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+        }
+
+        .naming-var-btn:hover {
+            background: var(--color-border);
+            color: var(--color-text-primary);
+            border-color: var(--color-border);
+        }
+
+        .naming-preview {
+            font-family: monospace;
+            margin-top: 6px;
+        }
+
+        /* Danger zone */
+        .settings-danger-zone {
+            margin-top: var(--space-4);
+            padding: var(--space-3) var(--space-4);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: var(--radius-md);
+            background: rgba(239, 68, 68, 0.04);
+        }
+
+        .danger-zone-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--color-error);
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .danger-zone-header svg {
+            flex-shrink: 0;
+        }
+
+        .danger-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px var(--space-3);
+            background: transparent;
+            color: var(--color-error);
+            border: 1px solid var(--color-error);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background var(--transition-fast), color var(--transition-fast);
+            margin-top: 4px;
+        }
+
+        .danger-button:hover {
+            background: var(--color-error);
+            color: #ffffff;
+        }
+
+        .danger-button:active {
+            background: var(--color-error-hover);
+            transform: scale(0.97);
+        }
+
+        /* Maintenance action rows */
+        .settings-action-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-4);
+        }
+
+        .settings-action-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .settings-action-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .settings-action-desc {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+        }
+
+        .settings-action-btn {
+            flex-shrink: 0;
+            padding: 6px var(--space-3);
+            font-size: 12px;
+        }
+
+        /* Settings modal footer */
+        #settings-modal .modal-buttons {
+            justify-content: flex-end;
+            padding-top: var(--space-4);
+            margin-top: var(--space-2);
+        }
+
         .prompt-textarea {
             width: 100%;
             height: 200px;
