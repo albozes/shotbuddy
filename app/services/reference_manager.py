@@ -129,7 +129,13 @@ class ReferenceManager:
 
     def delete_reference_image(self, filename: str) -> bool:
         """Delete a reference image."""
-        file_path = self.ref_images_dir / filename
+        file_path = (self.ref_images_dir / filename).resolve()
+
+        # Security check: ensure the resolved path is within ref-images
+        try:
+            file_path.relative_to(self.ref_images_dir.resolve())
+        except ValueError:
+            raise ValueError("Invalid filename")
 
         if not file_path.exists():
             raise ValueError(f"Reference image '{filename}' not found")
