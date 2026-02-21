@@ -897,33 +897,15 @@
             color: var(--color-text-tertiary);
             opacity: 0.5;
             transition: color var(--transition-base), opacity var(--transition-base), scale var(--transition-base);
-            animation: float 3s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { translate: 0 0; }
-            50% { translate: 0 -4px; }
         }
 
         .drop-zone:hover .drop-icon {
             color: var(--color-accent);
             opacity: 1;
             scale: 1.15;
-            animation: none;
-        }
-
-        .drop-zone.empty {
-            border: 2px dashed var(--color-border);
-            animation: pulse-border 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse-border {
-            0%, 100% { border-color: var(--color-border); }
-            50% { border-color: rgba(34, 197, 94, 0.4); }
         }
 
         .drop-zone.empty:hover {
-            animation: none;
             border-color: var(--color-accent);
             background: rgba(34, 197, 94, 0.05);
         }
@@ -971,12 +953,6 @@
         /* Placeholder for loading thumbnails */
         .preview-thumbnail.loading {
             background: var(--color-bg-card);
-            animation: thumb-pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes thumb-pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 0.8; }
         }
 
         .video-thumbnail {
