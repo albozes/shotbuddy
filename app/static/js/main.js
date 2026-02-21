@@ -5,7 +5,60 @@
         const NEW_SHOT_DROP_TEXT = 'Drop an asset here to create a new shot.';
         document.documentElement.style.setProperty('--new-shot-drop-text', `'${NEW_SHOT_DROP_TEXT}'`);
 
-        // Menu functions
+        // App bar functions
+
+        function toggleProjectDrawer() {
+            const appBar = document.querySelector('.app-bar');
+            appBar.classList.toggle('drawer-open');
+            if (appBar.classList.contains('drawer-open')) {
+                loadRecentProjects();
+                document.getElementById('manual-path-input').focus();
+            }
+        }
+
+        function closeProjectDrawer() {
+            document.querySelector('.app-bar').classList.remove('drawer-open');
+        }
+
+        async function loadRecentProjects() {
+            try {
+                const response = await fetch('/api/project/recent');
+                const result = await response.json();
+                const container = document.getElementById('recent-projects');
+                container.innerHTML = '';
+
+                if (result.success && result.data && result.data.length > 0) {
+                    const label = document.createElement('span');
+                    label.className = 'recent-label';
+                    label.textContent = 'Recent';
+                    container.appendChild(label);
+
+                    result.data.forEach(project => {
+                        const chip = document.createElement('button');
+                        chip.className = 'recent-chip';
+                        chip.textContent = project.name;
+                        chip.title = project.path;
+                        chip.addEventListener('click', () => openRecentProject(project.path));
+                        container.appendChild(chip);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load recent projects:', error);
+            }
+        }
+
+        function openRecentProject(path) {
+            document.getElementById('manual-path-input').value = path;
+            loadProjectFromManualPath();
+        }
+
+        // Close drawer when clicking outside
+        document.addEventListener('click', function(e) {
+            const appBar = document.querySelector('.app-bar');
+            if (appBar.classList.contains('drawer-open') && !e.target.closest('.app-bar')) {
+                closeProjectDrawer();
+            }
+        });
 
         async function loadProjectFromManualPath() {
             const input = document.getElementById('manual-path-input');
@@ -166,6 +219,11 @@
         function showSetupScreen() {
             document.getElementById('main-interface').style.display = 'none';
             document.getElementById('setup-screen').style.display = 'flex';
+            // Auto-expand the drawer and set placeholder name
+            document.getElementById('project-toggle-name').textContent = 'Open a Project';
+            document.querySelector('.app-bar').classList.add('drawer-open');
+            document.getElementById('app-bar-controls').style.display = 'none';
+            loadRecentProjects();
         }
 
         function showMainInterface() {
@@ -174,8 +232,10 @@
             // Ensure skeleton is visible and shot-grid hidden when transitioning from setup screen
             document.getElementById('skeleton-loading').style.display = 'block';
             document.getElementById('shot-grid').style.display = 'none';
-            // Update project info
-            document.getElementById('project-title').textContent = currentProject.name;
+            // Update app bar
+            document.getElementById('project-toggle-name').textContent = currentProject.name;
+            document.getElementById('app-bar-controls').style.display = '';
+            closeProjectDrawer();
             const input = document.getElementById('manual-path-input');
             if (input && currentProject && currentProject.path) {
                 input.value = currentProject.path;

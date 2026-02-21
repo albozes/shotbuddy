@@ -9,21 +9,38 @@
 </head>
 <body>
     <a href="#main-content" class="skip-to-content">Skip to content</a>
-    <div class="menu-bar">
-        <div class="setup-panel">
-            <input
-                id="manual-path-input"
-                class="path-input"
-                type="text"
-                placeholder="Enter full path to project folder"
-            />
-            <button class="dark-button" onclick="loadProjectFromManualPath()">
-                Load Project from Path
+    <div class="app-bar">
+        <div class="app-bar-main">
+            <button class="project-toggle" id="project-toggle" onclick="toggleProjectDrawer()">
+                <span class="project-toggle-name" id="project-toggle-name">Open a Project</span>
+                <svg class="project-toggle-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
             </button>
-            <button class="dark-button" onclick="openCreateProjectModal()">
-                Create New Project at Path
-            </button>
-            <button class="dark-button" onclick="openSettingsModal()" title="Settings">Settings</button>
+            <div class="app-bar-controls" id="app-bar-controls">
+                <button class="dark-button icon-button" onclick="openShotsFolder()" title="Open Project Shots Folder">
+                    <img src="{{ url_for('static', filename='icons/folder_24.png') }}" alt="Open Folder" />
+                </button>
+                <button class="dark-button icon-button" onclick="openSettingsModal()" title="Settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="project-drawer" id="project-drawer">
+            <div class="project-drawer-row">
+                <input
+                    id="manual-path-input"
+                    class="drawer-path-input"
+                    type="text"
+                    placeholder="Enter full path to project folder"
+                />
+                <button class="green-button" onclick="loadProjectFromManualPath()">Open</button>
+                <button class="dark-button" onclick="openCreateProjectModal()">Create New</button>
+            </div>
+            <div class="recent-projects" id="recent-projects"></div>
         </div>
     </div>
 
@@ -32,22 +49,12 @@
         <div class="setup-card" id="setup-card-no-project">
             <h2 style="margin-bottom: 20px;">Shotbuddy</h2>
             <p style="margin-bottom: 30px; color: #b5b5b5;">No project is currently open.</p>
-            <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Use the menu above to create a new project or open an existing one.</p>
+            <p style="margin-bottom: 20px; color: #808080; font-size: 14px;">Click the project name above to open or create a project.</p>
         </div>
     </div>
 
     <!-- Main Interface (visible by default - skeleton shows immediately) -->
     <div id="main-interface">
-        <div class="header">
-            <h1 class="project-title" id="project-title"></h1>
-            <div class="header-controls">
-                <button class="dark-button icon-button" onclick="openShotsFolder()" title="Open Project Shots Folder">
-                    <img src="{{ url_for('static', filename='icons/folder_24.png') }}" alt="Open Project Shots Folder" />
-                </button>
-                <button class="green-button" onclick="addNewShot()">New Shot +</button>
-            </div>
-        </div>
-
         <div class="main-content-wrapper">
             <div class="container">
                 <!-- Skeleton loading state -->
