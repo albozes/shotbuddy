@@ -774,6 +774,11 @@
         }
 
         async function saveNotes(shotName, notes) {
+            const shot = shots.find(s => s.name === shotName);
+            if (shot) {
+                shot.notes = notes;
+            }
+
             try {
                 const response = await fetch('/api/shots/notes', {
                     method: 'POST',
