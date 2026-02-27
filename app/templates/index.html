@@ -130,13 +130,13 @@
                 <div class="loading" id="loading" style="display: none;">Loading shots...</div>
                 <div class="shot-grid" id="shot-grid" tabindex="-1" style="display: none;">
                     <main id="main-content">
-                    <div class="grid-header">
-                        <div class="grid-header-cell">Shot Name</div>
-                        <div class="grid-header-cell">Image</div>
-                        <div class="grid-header-cell">Video</div>
-                        <!-- <div class="grid-header-cell">Lipsync</div> -->
-                        <div class="grid-header-cell">Notes</div>
-                        <div class="grid-header-cell collapse-header"></div>
+                    <div class="grid-header" id="main-grid-header">
+                        <div class="grid-header-cell" data-column="shot_name">Shot Name</div>
+                        <div class="grid-header-cell" data-column="image">Image</div>
+                        <div class="grid-header-cell" data-column="video">Video</div>
+                        <div class="grid-header-cell" data-column="lipsync" style="display:none">Lip Sync</div>
+                        <div class="grid-header-cell" data-column="notes">Notes</div>
+                        <div class="grid-header-cell collapse-header" data-column="collapse"></div>
                     </div>
                     <div id="shot-list"></div>
                     </main>
@@ -387,6 +387,41 @@
             <div class="modal-buttons">
                 <button class="dark-button" style="color: var(--color-error);" onclick="executeApplyNaming()">Rename Files</button>
                 <button class="dark-button" onclick="closeRenameModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Visibility Context Menu -->
+    <div id="column-context-menu" class="context-menu" style="display: none;">
+        <div class="context-menu-title">Columns</div>
+        <label class="context-menu-item">
+            <input type="checkbox" data-column="image" checked> Image
+        </label>
+        <label class="context-menu-item">
+            <input type="checkbox" data-column="video" checked> Video
+        </label>
+        <label class="context-menu-item">
+            <input type="checkbox" data-column="lipsync"> Lip Sync
+        </label>
+    </div>
+
+    <!-- Custom Lipsync Label Modal -->
+    <div id="lipsync-custom-modal" class="modal">
+        <div class="modal-content" style="max-width: 360px;">
+            <button class="close-modal" onclick="closeLipsyncCustomModal()">&times;</button>
+            <h3 style="margin-bottom: 12px;">Custom Label</h3>
+            <p style="margin-bottom: 12px; color: var(--color-text-secondary); font-size: 13px; line-height: 1.5;">
+                Enter a label for this file. It will be added to the filename
+                (e.g., <code style="color: var(--color-accent);">SH010_<em>your_label</em>_v001.mp4</code>).
+            </p>
+            <input type="text" id="lipsync-custom-label-input"
+                   class="text-input"
+                   placeholder="e.g. charA_driver"
+                   style="width: 100%; margin-bottom: 16px;"
+                   autocomplete="off">
+            <div class="modal-buttons">
+                <button class="dark-button" id="lipsync-custom-confirm-btn" onclick="confirmLipsyncCustomLabel()">Upload</button>
+                <button class="dark-button" onclick="closeLipsyncCustomModal()">Cancel</button>
             </div>
         </div>
     </div>

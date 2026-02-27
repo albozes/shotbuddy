@@ -10,6 +10,7 @@ from ..utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
 from ..config.constants import (
     ALLOWED_IMAGE_EXTENSIONS,
     ALLOWED_VIDEO_EXTENSIONS,
+    ALLOWED_LIPSYNC_EXTENSIONS,
     THUMBNAIL_CACHE_DIR,
     AssetType,
 )
@@ -65,7 +66,7 @@ class FileHandler:
                 except Exception as e:
                     logger.warning("Could not delete thumbnail %s: %s", thumb, e)
 
-    def save_file(self, file, shot_name, file_type):
+    def save_file(self, file, shot_name, file_type, custom_label=None):
         """Save uploaded file with proper versioning"""
         shot_dir = self.wip_dir / shot_name
         file_ext = Path(file.filename).suffix.lower()
@@ -74,19 +75,20 @@ class FileHandler:
             raise ValueError(f"Invalid image format. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
         elif file_type == AssetType.VIDEO and file_ext not in ALLOWED_VIDEO_EXTENSIONS:
             raise ValueError(f"Invalid video format. Allowed: {', '.join(ALLOWED_VIDEO_EXTENSIONS)}")
-        elif file_type in AssetType.LIPSYNC_TYPES and file_ext not in ALLOWED_VIDEO_EXTENSIONS:
-            raise ValueError(f"Invalid video format. Allowed: {', '.join(ALLOWED_VIDEO_EXTENSIONS)}")
+        elif file_type in AssetType.LIPSYNC_TYPES and file_ext not in ALLOWED_LIPSYNC_EXTENSIONS:
+            raise ValueError(f"Invalid lipsync format. Allowed: {', '.join(ALLOWED_LIPSYNC_EXTENSIONS)}")
+        elif file_type == AssetType.LIPSYNC_CUSTOM and file_ext not in ALLOWED_LIPSYNC_EXTENSIONS:
+            raise ValueError(f"Invalid lipsync format. Allowed: {', '.join(ALLOWED_LIPSYNC_EXTENSIONS)}")
 
         if not shot_dir.exists():
             get_shot_manager(self.project_path).create_shot_structure(shot_name)
 
         if file_type in AssetType.MEDIA_TYPES:
             wip_dir = shot_dir / ('images' if file_type == AssetType.IMAGE else 'videos')
-            version = self.get_next_version(wip_dir, shot_name)
-
             base_name = resolve_naming_pattern(
                 self.naming_pattern, self.project_path.name, shot_name
             )
+            version = self.get_next_version(wip_dir, base_name)
             wip_filename = f'{base_name}_v{version:03d}{file_ext}'
             wip_path = wip_dir / wip_filename
             file.save(str(wip_path))
@@ -119,29 +121,47 @@ class FileHandler:
                         logger.warning('Failed to save imported prompt: %s', e)
                 else:
                     logger.info("No embedded prompt found in %s", final_path)
-        else:
-            # lipsync driver/target/result
+        elif file_type == AssetType.LIPSYNC_CUSTOM:
+            # Custom-labeled lipsync file
+            if not custom_label:
+                raise ValueError("Custom label is required for custom lipsync files")
             dest_dir = shot_dir / 'lipsync'
             dest_dir.mkdir(exist_ok=True)
-            base = f'{shot_name}_{file_type}'
+            base_name = resolve_naming_pattern(
+                self.naming_pattern, self.project_path.name, shot_name
+            )
+            base = f'{base_name}_{custom_label}'
             version = self.get_next_version(dest_dir, base)
             wip_filename = f'{base}_v{version:03d}{file_ext}'
             wip_path = dest_dir / wip_filename
             file.save(str(wip_path))
 
-            final_path = dest_dir / f'{base}{file_ext}'
-            for existing_file in dest_dir.glob(f'{base}.*'):
-                if existing_file != wip_path:
-                    existing_file.unlink()
+            final_path = wip_path
+            thumb_key = f'{shot_name}_{custom_label}'
+        else:
+            # lipsync driver/target/result
+            dest_dir = shot_dir / 'lipsync'
+            dest_dir.mkdir(exist_ok=True)
+            base_name = resolve_naming_pattern(
+                self.naming_pattern, self.project_path.name, shot_name
+            )
+            base = f'{base_name}_{file_type}'
+            version = self.get_next_version(dest_dir, base)
+            wip_filename = f'{base}_v{version:03d}{file_ext}'
+            wip_path = dest_dir / wip_filename
+            file.save(str(wip_path))
 
-            shutil.copy2(str(wip_path), str(final_path))
-            thumb_key = base
+            final_path = wip_path
+            thumb_key = f'{shot_name}_{file_type}'
 
         thumbnail_path = None
         if file_type == AssetType.IMAGE:
             thumbnail_path = self.create_thumbnail(str(final_path), shot_name)
-        else:
+        elif file_ext in ALLOWED_IMAGE_EXTENSIONS:
+            thumbnail_path = self.create_thumbnail(str(final_path), thumb_key)
+        elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
             thumbnail_path = self.create_video_thumbnail(str(final_path), thumb_key)
+        # Audio files get no thumbnail
 
         return {
             'wip_path': str(wip_path).replace('\\', '/'),
@@ -150,21 +170,25 @@ class FileHandler:
             'thumbnail': f"static/thumbnails/{Path(thumbnail_path).name}" if thumbnail_path else None
         }
 
-    def get_next_version(self, wip_dir, shot_name):
+    def get_next_version(self, wip_dir, base_name):
         """Get the next available version number for a shot asset.
 
-        Searches for any file containing ``_v###`` in the directory.  This is
-        safe because each shot stores assets in its own subdirectory.
+        Searches for files matching ``{base_name}_v###`` in the directory.
         """
         if not wip_dir.exists():
             return 1
 
-        file_type = 'image' if 'image' in str(wip_dir) else 'video'
-        allowed_extensions = ALLOWED_IMAGE_EXTENSIONS if file_type == 'image' else ALLOWED_VIDEO_EXTENSIONS
+        dir_name = str(wip_dir)
+        if 'image' in dir_name:
+            allowed_extensions = ALLOWED_IMAGE_EXTENSIONS
+        elif 'lipsync' in dir_name:
+            allowed_extensions = ALLOWED_LIPSYNC_EXTENSIONS
+        else:
+            allowed_extensions = ALLOWED_VIDEO_EXTENSIONS
 
         existing_files = []
         for ext in allowed_extensions:
-            existing_files.extend(wip_dir.glob(f'*_v*{ext}'))
+            existing_files.extend(wip_dir.glob(f'{base_name}_v*{ext}'))
 
         if not existing_files:
             return 1

@@ -5,6 +5,137 @@
         const NEW_SHOT_DROP_TEXT = 'Drop an asset here to create a new shot.';
         document.documentElement.style.setProperty('--new-shot-drop-text', `'${NEW_SHOT_DROP_TEXT}'`);
 
+        // Column visibility configuration
+        const COLUMN_CONFIG = [
+            { id: 'shot_name', label: 'Shot Name', width: '110px', fixed: true },
+            { id: 'image',     label: 'Image',     width: '160px', fixed: false, defaultVisible: true },
+            { id: 'video',     label: 'Video',     width: '160px', fixed: false, defaultVisible: true },
+            { id: 'lipsync',   label: 'Lip Sync',  width: '160px', fixed: false, defaultVisible: false },
+            { id: 'notes',     label: 'Notes',     width: '1fr',   fixed: true },
+            { id: 'collapse',  label: '',           width: '50px',  fixed: true },
+        ];
+
+        function getVisibleColumns() {
+            const visible = (typeof currentSettings !== 'undefined' && currentSettings.visible_columns)
+                || COLUMN_CONFIG.filter(c => c.fixed || c.defaultVisible).map(c => c.id);
+            return COLUMN_CONFIG.filter(c => c.fixed || visible.includes(c.id));
+        }
+
+        function getGridTemplate() {
+            return getVisibleColumns().map(c => c.width).join(' ');
+        }
+
+        function applyGridTemplate() {
+            document.documentElement.style.setProperty('--grid-columns', getGridTemplate());
+        }
+
+        function isColumnVisible(columnId) {
+            const visible = (typeof currentSettings !== 'undefined' && currentSettings.visible_columns)
+                || COLUMN_CONFIG.filter(c => c.fixed || c.defaultVisible).map(c => c.id);
+            return visible.includes(columnId);
+        }
+
+        function renderGridHeader() {
+            const header = document.getElementById('main-grid-header');
+            if (!header) return;
+            header.innerHTML = '';
+            for (const col of getVisibleColumns()) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-header-cell';
+                cell.dataset.column = col.id;
+                cell.textContent = col.label;
+                if (col.id === 'collapse') cell.classList.add('collapse-header');
+                header.appendChild(cell);
+            }
+        }
+
+        // Column context menu functions
+
+        function initColumnContextMenu() {
+            const menu = document.getElementById('column-context-menu');
+
+            document.addEventListener('contextmenu', function(e) {
+                const header = e.target.closest('.grid-header');
+                if (!header) return;
+                e.preventDefault();
+                showColumnContextMenu(e.clientX, e.clientY);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#column-context-menu')) {
+                    hideColumnContextMenu();
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') hideColumnContextMenu();
+            });
+
+            menu.addEventListener('change', function(e) {
+                const checkbox = e.target.closest('input[data-column]');
+                if (!checkbox) return;
+                toggleColumnVisibility(checkbox.dataset.column, checkbox.checked);
+            });
+        }
+
+        function showColumnContextMenu(x, y) {
+            const menu = document.getElementById('column-context-menu');
+
+            menu.querySelectorAll('input[data-column]').forEach(cb => {
+                cb.checked = isColumnVisible(cb.dataset.column);
+            });
+
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+            menu.style.display = 'block';
+
+            requestAnimationFrame(() => {
+                const rect = menu.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+                }
+                if (rect.bottom > window.innerHeight) {
+                    menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+                }
+                menu.classList.add('show');
+            });
+        }
+
+        function hideColumnContextMenu() {
+            const menu = document.getElementById('column-context-menu');
+            menu.classList.remove('show');
+            setTimeout(() => { menu.style.display = 'none'; }, 150);
+        }
+
+        async function toggleColumnVisibility(columnId, visible) {
+            const toggleable = COLUMN_CONFIG.filter(c => !c.fixed);
+            let visibleColumns = currentSettings.visible_columns
+                || toggleable.filter(c => c.defaultVisible).map(c => c.id);
+
+            visibleColumns = [...visibleColumns];
+
+            if (visible && !visibleColumns.includes(columnId)) {
+                visibleColumns.push(columnId);
+            } else if (!visible) {
+                visibleColumns = visibleColumns.filter(id => id !== columnId);
+            }
+
+            currentSettings.visible_columns = visibleColumns;
+
+            applyGridTemplate();
+            renderShots();
+
+            try {
+                await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visible_columns: visibleColumns })
+                });
+            } catch (e) {
+                console.error('Failed to save column visibility:', e);
+            }
+        }
+
         // App bar functions
 
         function toggleProjectDrawer() {
@@ -175,6 +306,7 @@
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', handlePromptButtonClick);
+            initColumnContextMenu();
             checkForProject();
 
             // Global drag detection for showing drop zones between shots
@@ -318,6 +450,8 @@
         }
 
         function renderShots() {
+            applyGridTemplate();
+            renderGridHeader();
             const shotList = document.getElementById("shot-list");
             shotList.innerHTML = "";
 
@@ -441,17 +575,23 @@
                 row.classList.add('collapsed');
             }
 
-            // Check if shot is empty (no image and no video)
-            const isEmpty = shot.image.version === 0 && shot.video.version === 0;
+            // Check if shot is empty (no image, no video, no lipsync)
+            const hasLipsync = shot.lipsync && (
+                shot.lipsync.driver?.version > 0 ||
+                shot.lipsync.target?.version > 0 ||
+                shot.lipsync.result?.version > 0 ||
+                (shot.lipsync.custom_files && shot.lipsync.custom_files.length > 0)
+            );
+            const isEmpty = shot.image.version === 0 && shot.video.version === 0 && !hasLipsync;
             const deleteBtn = isEmpty
                 ? `<button class="shot-action-btn delete-btn" onclick="deleteShot('${shot.name}')" title="Delete empty shot"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>`
                 : '';
 
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
-                ${createDropZone(shot, 'image')}
-                ${createDropZone(shot, 'video')}
-                ${'' /* createLipsyncZone(shot) */}
+                ${isColumnVisible('image') ? createDropZone(shot, 'image') : ''}
+                ${isColumnVisible('video') ? createDropZone(shot, 'video') : ''}
+                ${isColumnVisible('lipsync') ? createLipsyncZone(shot) : ''}
                 <div class="notes-cell">
                     <textarea class="notes-input"
                               placeholder="Add notes..."
@@ -541,40 +681,223 @@
         }
 
         function createLipsyncZone(shot) {
-            const parts = ['driver', 'target', 'result'];
-            let html = '<div class="lipsync-cell">';
-            for (const part of parts) {
-                const file = shot.lipsync[part];
-                const hasFile = file.version > 0;
-                const label = part.charAt(0).toUpperCase() + part.slice(1);
-                if (hasFile) {
-                    const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
-                    const needsLazyLoad = file.version > 0 && !file.thumbnail;
-                    const thumbnailStyle = thumbnailUrl ?
-                        `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
-                        'background: var(--color-bg-hover);';
-                    html += `
-                        <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
-                            <div class="file-preview lipsync-preview">
-                                <div class="preview-thumbnail lipsync-thumbnail${needsLazyLoad ? ' loading' : ''}" data-label="${label}" style="${thumbnailStyle}" ${needsLazyLoad ? `data-lazy-thumb="true" data-shot="${shot.name}" data-asset-type="${part}"` : ''} onclick="revealFile('${file.file}')"></div>
-                                <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
-                                <button class="prompt-button" title="View and edit prompt"
-                                        data-shot="${shot.name}"
-                                        data-type="${part}"
-                                        data-version="${file.version}">P</button>
-                            </div>
-                        </div>`;
-                } else {
-                    html += `
-                        <div class="drop-zone lipsync-drop empty" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
-                            <div class="drop-placeholder">
-                                <div class="text">${label}</div>
-                            </div>
-                        </div>`;
-                }
+            const lipsync = shot.lipsync;
+            const bestThumb = lipsync.best_thumbnail;
+            const hasAudioOnly = lipsync.has_audio_only;
+            const customFiles = lipsync.custom_files || [];
+
+            // Count total files
+            let totalFiles = customFiles.length;
+            for (const part of ['driver', 'target', 'result']) {
+                if (lipsync[part] && lipsync[part].version > 0) totalFiles++;
             }
-            html += '</div>';
-            return html;
+            const hasFiles = totalFiles > 0;
+
+            let defaultContent = '';
+            if (hasFiles && bestThumb) {
+                const thumbUrl = `${bestThumb}?v=${Date.now()}`;
+                defaultContent = `
+                    <div class="lipsync-default"
+                         style="background-image: url('${thumbUrl}');"
+                         onclick="revealLipsyncFolder('${shot.name}')">
+                        ${totalFiles > 1 ? `<span class="lipsync-file-count">${totalFiles} files</span>` : ''}
+                    </div>`;
+            } else if (hasFiles && hasAudioOnly) {
+                defaultContent = `
+                    <div class="lipsync-default"
+                         style="background: var(--color-bg-hover); display: flex; align-items: center; justify-content: center;"
+                         onclick="revealLipsyncFolder('${shot.name}')">
+                        <svg class="lipsync-audio-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="28" height="28"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>
+                        ${totalFiles > 1 ? `<span class="lipsync-file-count">${totalFiles} files</span>` : ''}
+                    </div>`;
+            } else if (hasFiles) {
+                // Has files but no thumbnail yet (loading)
+                defaultContent = `
+                    <div class="lipsync-default"
+                         style="background: var(--color-bg-hover);"
+                         onclick="revealLipsyncFolder('${shot.name}')">
+                        <span class="lipsync-file-count">${totalFiles} file${totalFiles > 1 ? 's' : ''}</span>
+                    </div>`;
+            } else {
+                // Empty — show lip sync icon placeholder
+                defaultContent = `
+                    <div class="lipsync-default empty">
+                        <svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
+                    </div>`;
+            }
+
+            // Quadrant drop overlay (shown only during drag)
+            const quadrantOverlay = `
+                <div class="lipsync-drop-overlay">
+                    <div class="lipsync-quadrant"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleDrop(event, '${shot.name}', 'driver')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Drv</span>
+                    </div>
+                    <div class="lipsync-quadrant"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleDrop(event, '${shot.name}', 'target')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Tgt</span>
+                    </div>
+                    <div class="lipsync-quadrant"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleDrop(event, '${shot.name}', 'result')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Res</span>
+                    </div>
+                    <div class="lipsync-quadrant"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleLipsyncCustomDrop(event, '${shot.name}')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Custom</span>
+                    </div>
+                </div>`;
+
+            return `<div class="lipsync-cell"
+                         ondragenter="handleLipsyncCellDragEnter(event)"
+                         ondragover="handleLipsyncCellDragOver(event)"
+                         ondragleave="handleLipsyncCellDragLeave(event)"
+                         ondrop="handleLipsyncCellDrop(event)">
+                        ${defaultContent}
+                        ${quadrantOverlay}
+                    </div>`;
+        }
+
+        // Lipsync cell drag handlers — show/hide quadrant overlay
+        let lipsyncDragCounter = 0;
+
+        function clearAllLipsyncDragState() {
+            document.querySelectorAll('.lipsync-cell.drag-active').forEach(c => c.classList.remove('drag-active'));
+            lipsyncDragCounter = 0;
+        }
+
+        function handleLipsyncCellDragEnter(event) {
+            event.preventDefault();
+            const cell = event.currentTarget;
+            if (!cell.classList.contains('drag-active')) {
+                clearAllLipsyncDragState();
+            }
+            lipsyncDragCounter++;
+            cell.classList.add('drag-active');
+        }
+
+        function handleLipsyncCellDragOver(event) {
+            event.preventDefault();
+        }
+
+        function handleLipsyncCellDragLeave(event) {
+            lipsyncDragCounter--;
+            if (lipsyncDragCounter <= 0) {
+                lipsyncDragCounter = 0;
+                event.currentTarget.classList.remove('drag-active');
+            }
+        }
+
+        function handleLipsyncCellDrop(event) {
+            clearAllLipsyncDragState();
+        }
+
+        // Quadrant-level drag handlers
+        function handleLipsyncQuadrantDragOver(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleLipsyncQuadrantDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        // Custom lipsync drop — stores file temporarily and shows label modal
+        let pendingCustomLipsyncFile = null;
+        let pendingCustomLipsyncShot = null;
+
+        function handleLipsyncCustomDrop(event, shotName) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            clearAllLipsyncDragState();
+
+            const files = event.dataTransfer.files;
+            if (files.length === 0) return;
+
+            pendingCustomLipsyncFile = files[0];
+            pendingCustomLipsyncShot = shotName;
+            openLipsyncCustomModal();
+        }
+
+        function openLipsyncCustomModal() {
+            const modal = document.getElementById('lipsync-custom-modal');
+            const input = document.getElementById('lipsync-custom-label-input');
+            modal.style.display = 'flex';
+            input.value = '';
+            requestAnimationFrame(() => {
+                modal.classList.add('show');
+                input.focus();
+            });
+
+            // Enter key to confirm
+            input.onkeydown = function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    confirmLipsyncCustomLabel();
+                }
+            };
+        }
+
+        function closeLipsyncCustomModal() {
+            const modal = document.getElementById('lipsync-custom-modal');
+            modal.classList.remove('show');
+            setTimeout(() => { modal.style.display = 'none'; }, 200);
+            pendingCustomLipsyncFile = null;
+            pendingCustomLipsyncShot = null;
+        }
+
+        async function confirmLipsyncCustomLabel() {
+            const input = document.getElementById('lipsync-custom-label-input');
+            const label = input.value.trim();
+            if (!label) {
+                input.focus();
+                return;
+            }
+            if (!pendingCustomLipsyncFile || !pendingCustomLipsyncShot) return;
+
+            const formData = new FormData();
+            formData.append('file', pendingCustomLipsyncFile);
+            formData.append('shot_name', pendingCustomLipsyncShot);
+            formData.append('file_type', 'lipsync_custom');
+            formData.append('custom_label', label);
+
+            closeLipsyncCustomModal();
+
+            try {
+                const response = await fetch('/api/shots/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification(`Uploaded custom lipsync file`);
+                    await loadShots();
+                } else {
+                    showNotification(result.error || 'Upload failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Upload failed: ' + e.message, 'error');
+            }
+        }
+
+        async function revealLipsyncFolder(shotName) {
+            try {
+                await fetch('/api/shots/open-folder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shot_name: shotName, subfolder: 'lipsync' })
+                });
+            } catch (e) {
+                console.error('Failed to open lipsync folder:', e);
+            }
         }
 
         async function addNewShot() {
@@ -1122,6 +1445,9 @@ async function loadSettings() {
             // Apply saved theme and mode
             applyTheme(currentSettings.color_theme);
             applyMode(currentSettings.color_mode || 'dark');
+            // Apply column visibility
+            applyGridTemplate();
+            renderGridHeader();
         }
     } catch (e) {
         console.error('Failed to load settings:', e);
@@ -1532,8 +1858,12 @@ async function toggleShotCollapse(shotName) {
             row.classList.remove('expanding');
         }, 700);
     } else {
-        // Collapsing: just add collapsed class (CSS animation handles the rest)
-        row.classList.add('collapsed');
+        // Collapsing: animate with collapsing class, then swap to static collapsed state
+        row.classList.add('collapsing');
+        setTimeout(() => {
+            row.classList.remove('collapsing');
+            row.classList.add('collapsed');
+        }, 700);
     }
 
     // Update the collapsed_shots array

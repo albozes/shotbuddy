@@ -7,6 +7,8 @@ UPLOAD_FOLDER = os.environ.get('SHOTBUDDY_UPLOAD_FOLDER', 'uploads')
 PROJECTS_FILE = 'projects.json'
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'.mp4', '.mov'}
+ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a'}
+ALLOWED_LIPSYNC_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | ALLOWED_VIDEO_EXTENSIONS | ALLOWED_AUDIO_EXTENSIONS
 
 
 class AssetType:
@@ -17,10 +19,12 @@ class AssetType:
     TARGET = 'target'
     RESULT = 'result'
 
+    LIPSYNC_CUSTOM = 'lipsync_custom'
+
     # Grouped sets for validation
     MEDIA_TYPES = {IMAGE, VIDEO}
     LIPSYNC_TYPES = {DRIVER, TARGET, RESULT}
-    ALL_TYPES = MEDIA_TYPES | LIPSYNC_TYPES
+    ALL_TYPES = MEDIA_TYPES | LIPSYNC_TYPES | {LIPSYNC_CUSTOM}
 
 # Central thumbnail cache location. Stored inside the application's static
 # directory so thumbnails persist across projects. The cache is cleared when

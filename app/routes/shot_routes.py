@@ -75,11 +75,13 @@ def upload_file(project):
         if file.filename == '':
             return error_response("No file selected")
 
+        custom_label = request.form.get('custom_label')
+
         project_manager = current_app.config['PROJECT_MANAGER']
         settings = project_manager.get_settings()
         naming_pattern = settings.get('file_naming_pattern', '{shot}')
         file_handler = FileHandler(project['path'], naming_pattern=naming_pattern)
-        result = file_handler.save_file(file, shot_name, file_type)
+        result = file_handler.save_file(file, shot_name, file_type, custom_label=custom_label)
 
         return jsonify({"success": True, "data": result})
     except ValueError as e:
@@ -284,11 +286,19 @@ def reveal_file(project):
 def open_shots_folder(project):
     """Open the current project's shots folder in the file browser."""
     try:
-        shots_path = Path(project["path"]) / "shots"
-        if not shots_path.exists():
-            return error_response("Shots folder missing", 404)
+        data = request.get_json() or {}
+        shot_name = data.get("shot_name")
+        subfolder = data.get("subfolder")
 
-        open_folder_in_browser(shots_path)
+        if shot_name and subfolder:
+            folder_path = Path(project["path"]) / "shots" / "wip" / shot_name / subfolder
+        else:
+            folder_path = Path(project["path"]) / "shots"
+
+        if not folder_path.exists():
+            folder_path.mkdir(parents=True, exist_ok=True)
+
+        open_folder_in_browser(folder_path)
         return jsonify({"success": True})
     except Exception as e:
         return error_response(str(e), 500)

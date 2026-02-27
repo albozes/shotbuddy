@@ -182,14 +182,15 @@ class ProjectManager:
             'color_theme': global_settings.get('color_theme', 'default'),
             'color_mode': global_settings.get('color_mode', 'dark'),
             'file_naming_pattern': global_settings.get('file_naming_pattern', '{shot}'),
-            'collapsed_shots': project_settings.get('collapsed_shots', [])
+            'collapsed_shots': project_settings.get('collapsed_shots', []),
+            'visible_columns': project_settings.get('visible_columns', ['image', 'video'])
         }
 
     def update_settings(self, settings_dict):
         """Update user settings and save (handles both global and project-specific settings)."""
         # Separate global settings from project-specific settings
         global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode', 'file_naming_pattern']
-        project_settings_keys = ['collapsed_shots']
+        project_settings_keys = ['collapsed_shots', 'visible_columns']
 
         # Update global settings
         if 'settings' not in self.projects:
