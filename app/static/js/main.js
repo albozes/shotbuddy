@@ -1552,8 +1552,12 @@ async function toggleShotCollapse(shotName) {
             row.classList.remove('expanding');
         }, 700);
     } else {
-        // Collapsing: just add collapsed class (CSS animation handles the rest)
-        row.classList.add('collapsed');
+        // Collapsing: animate with collapsing class, then swap to static collapsed state
+        row.classList.add('collapsing');
+        setTimeout(() => {
+            row.classList.remove('collapsing');
+            row.classList.add('collapsed');
+        }, 700);
     }
 
     // Update the collapsed_shots array
