@@ -908,10 +908,6 @@
             border: none;
             border-radius: 50%;
             color: white;
-            font-size: 18px;
-            font-weight: 600;
-            line-height: 1;
-            padding-top: 2px;
             box-sizing: border-box;
             cursor: pointer;
             transition: all var(--transition-fast), transform var(--transition-spring);
