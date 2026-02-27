@@ -1,7 +1,9 @@
+import logging
+
 from flask import Flask
 from flask_cors import CORS
-from app.services.project_manager import ProjectManager
-import logging
+
+from .services.project_manager import ProjectManager
 
 def create_app():
     app = Flask(__name__)
@@ -15,10 +17,10 @@ def create_app():
     app.config['PROJECT_MANAGER'] = ProjectManager()
     app.config['SHOT_MANAGER_CACHE'] = {}
 
-    from app.routes.project_routes import project_bp
-    from app.routes.shot_routes import shot_bp
-    from app.routes.settings_routes import settings_bp
-    from app.routes.reference_routes import reference_bp
+    from .routes.project_routes import project_bp
+    from .routes.shot_routes import shot_bp
+    from .routes.settings_routes import settings_bp
+    from .routes.reference_routes import reference_bp
 
     # Register blueprints with appropriate prefixes
     app.register_blueprint(project_bp, url_prefix='/')

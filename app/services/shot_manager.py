@@ -3,7 +3,13 @@ import filecmp
 import logging
 import re
 
-from app.utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
+from ..utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
+from ..config.constants import (
+    ALLOWED_IMAGE_EXTENSIONS,
+    ALLOWED_VIDEO_EXTENSIONS,
+    THUMBNAIL_CACHE_DIR,
+    AssetType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +44,6 @@ def _format_shot_parts(parts):
         base += f"_{p:03d}"
     return base
 
-from app.config.constants import (
-    ALLOWED_IMAGE_EXTENSIONS,
-    ALLOWED_VIDEO_EXTENSIONS,
-    THUMBNAIL_CACHE_DIR,
-    AssetType,
-)
 
 class ShotManager:
     def __init__(self, project_path):

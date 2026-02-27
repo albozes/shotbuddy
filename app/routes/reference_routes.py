@@ -1,10 +1,12 @@
-from flask import Blueprint, request, jsonify, send_file, current_app
 from pathlib import Path
-from werkzeug.utils import secure_filename
 import logging
 
-from app.services.reference_manager import ReferenceManager
-from app.utils import require_project, error_response, reveal_in_file_browser
+from flask import Blueprint, request, jsonify, send_file, current_app
+from werkzeug.utils import secure_filename
+
+from ..config.constants import THUMBNAIL_CACHE_DIR
+from ..services.reference_manager import ReferenceManager
+from ..utils import require_project, error_response, reveal_in_file_browser
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +113,6 @@ def serve_reference_image(project, filename):
 def serve_reference_thumbnail(filename):
     """Serve a reference image thumbnail from the cache directory."""
     try:
-        from app.config.constants import THUMBNAIL_CACHE_DIR
-
         thumb_path = THUMBNAIL_CACHE_DIR / Path(filename).name
         thumb_dir = THUMBNAIL_CACHE_DIR.resolve()
         thumb_path = thumb_path.resolve()

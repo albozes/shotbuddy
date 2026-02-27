@@ -1,11 +1,13 @@
 # settings_routes.py
 
-from flask import Blueprint, jsonify, request, current_app
-from app.services.file_handler import FileHandler
 import logging
 import os
 import sys
 import threading
+
+from flask import Blueprint, jsonify, request, current_app
+
+from ..services.file_handler import FileHandler
 
 logger = logging.getLogger(__name__)
 

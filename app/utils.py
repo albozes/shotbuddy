@@ -100,7 +100,7 @@ def create_image_thumbnail(image_path, thumb_path, size=None):
         str: Path to the created thumbnail, or None on failure
     """
     from PIL import Image
-    from app.config.constants import THUMBNAIL_SIZE
+    from .config.constants import THUMBNAIL_SIZE
 
     if size is None:
         size = THUMBNAIL_SIZE
@@ -145,7 +145,7 @@ def create_video_thumbnail(video_path, thumb_path, size=None):
     """
     import shutil as _shutil
     from PIL import Image
-    from app.config.constants import THUMBNAIL_SIZE
+    from .config.constants import THUMBNAIL_SIZE
 
     if size is None:
         size = THUMBNAIL_SIZE

@@ -1,13 +1,13 @@
+from datetime import datetime
 from pathlib import Path
+import logging
 import re
 import shutil
-import logging
-from datetime import datetime
 
-from app.services.prompt_importer import extract_prompt_from_png
-from app.services.shot_manager import get_shot_manager
-from app.utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
-from app.config.constants import (
+from .prompt_importer import extract_prompt_from_png
+from .shot_manager import get_shot_manager
+from ..utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
+from ..config.constants import (
     ALLOWED_IMAGE_EXTENSIONS,
     ALLOWED_VIDEO_EXTENSIONS,
     THUMBNAIL_CACHE_DIR,

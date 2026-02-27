@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import List, Dict
 import logging
 
-from app.utils import create_image_thumbnail
-from app.config.constants import THUMBNAIL_CACHE_DIR, ALLOWED_IMAGE_EXTENSIONS
+from ..utils import create_image_thumbnail
+from ..config.constants import THUMBNAIL_CACHE_DIR, ALLOWED_IMAGE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 

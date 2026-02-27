@@ -1,11 +1,12 @@
-from flask import Blueprint, request, jsonify, render_template, current_app
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 import logging
 
-logger = logging.getLogger(__name__)
+from flask import Blueprint, request, jsonify, render_template, current_app
 
-from app.services.shot_manager import get_shot_manager, clear_shot_manager_cache
+from ..services.shot_manager import get_shot_manager, clear_shot_manager_cache
+
+logger = logging.getLogger(__name__)
 
 project_bp = Blueprint('project', __name__)
 
@@ -61,7 +62,7 @@ def open_project():
         project_path = data.get("path")
         if not project_path:
             return jsonify({"success": False, "error": "Project path required"}), 400
-        from app.utils import sanitize_path
+        from ..utils import sanitize_path
         project_path = sanitize_path(project_path).resolve()
         path_str = str(project_path)
         shots_dir = project_path / "shots"
@@ -134,7 +135,7 @@ def create_project():
         data = request.get_json()
         project_name = data.get("name", "Untitled Project")
         selected_folder = data.get("path", ".")
-        from app.utils import sanitize_path
+        from ..utils import sanitize_path
         folder_path = sanitize_path(selected_folder).resolve()
 
         project_dir = folder_path / project_name

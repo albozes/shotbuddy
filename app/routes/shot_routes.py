@@ -1,16 +1,24 @@
-from flask import Blueprint, request, jsonify, send_file, current_app
 from pathlib import Path
 import logging
 
-from app.services.shot_manager import get_shot_manager
-from app.services.file_handler import FileHandler, resolve_naming_pattern
-from app.utils import (
+from flask import Blueprint, request, jsonify, send_file, current_app
+
+from ..services.shot_manager import get_shot_manager
+from ..services.file_handler import FileHandler, resolve_naming_pattern
+from ..utils import (
     require_project,
     error_response,
     reveal_in_file_browser,
     open_folder_in_browser,
+    create_image_thumbnail,
+    create_video_thumbnail,
 )
-from app.config.constants import AssetType
+from ..config.constants import (
+    AssetType,
+    ALLOWED_IMAGE_EXTENSIONS,
+    ALLOWED_VIDEO_EXTENSIONS,
+    THUMBNAIL_CACHE_DIR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,8 +215,6 @@ def create_shot_between(project):
 def serve_thumbnail(filepath):
     """Serve a thumbnail from the cache directory."""
     try:
-        from app.config.constants import THUMBNAIL_CACHE_DIR
-
         thumb_path = THUMBNAIL_CACHE_DIR / Path(filepath).name
         thumb_dir = THUMBNAIL_CACHE_DIR.resolve()
         thumb_path = thumb_path.resolve()
@@ -324,9 +330,6 @@ def serve_video(project):
 def refresh_thumbnails(project):
     """Clear and regenerate all thumbnails for the current project."""
     try:
-        from app.config.constants import THUMBNAIL_CACHE_DIR
-        import os
-
         project_name = Path(project["path"]).name
 
         # Delete all thumbnails for this project
@@ -420,7 +423,6 @@ def restore_version(project):
     """Restore a previous version to the latest folder."""
     try:
         import shutil
-        from app.config.constants import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS
 
         data = request.get_json()
         shot_name = data.get("shot_name")
@@ -470,9 +472,6 @@ def restore_version(project):
         shutil.copy2(str(version_file), str(dest_path))
 
         # Regenerate thumbnail for the restored version
-        from app.config.constants import THUMBNAIL_CACHE_DIR
-        from app.utils import create_image_thumbnail, create_video_thumbnail
-
         project_name = project_path.name
         if asset_type == AssetType.IMAGE:
             thumb_filename = f"{project_name}_{shot_name}_{dest_path.stem}_thumb.jpg"

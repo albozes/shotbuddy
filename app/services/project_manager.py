@@ -1,10 +1,11 @@
 # project_manager.py
 
+from datetime import datetime
 from pathlib import Path
 import json
-from datetime import datetime
 import logging
-from app.config.constants import PROJECTS_FILE
+
+from ..config.constants import PROJECTS_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class ProjectManager:
             logger.warning("Failed to save projects.json: %s", e)
 
     def create_project(self, project_path, project_name):
-        from app.utils import sanitize_path
+        from ..utils import sanitize_path
         project_dir = sanitize_path(project_path).resolve() / project_name
         project_dir.mkdir(parents=True, exist_ok=True)
         shots_dir = project_dir / 'shots'
@@ -89,7 +90,7 @@ class ProjectManager:
         return project_info
 
     def set_current_project(self, path: Path):
-        from app.utils import sanitize_path
+        from ..utils import sanitize_path
         path = sanitize_path(path).resolve()
         path_str = str(path)
         self.projects['current_project'] = path_str
@@ -107,7 +108,7 @@ class ProjectManager:
         if not project_path:
             logger.warning("No current project path set.")
             return None
-        from app.utils import sanitize_path
+        from ..utils import sanitize_path
         project_path = sanitize_path(project_path).resolve()
         shots_dir = project_path / 'shots'
 
