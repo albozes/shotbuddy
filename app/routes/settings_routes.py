@@ -2,8 +2,10 @@
 
 import logging
 import os
+import subprocess
 import sys
 import threading
+from pathlib import Path
 
 from flask import Blueprint, jsonify, request, current_app
 
@@ -168,6 +170,28 @@ subprocess.Popen(['{python}'] + {sys.argv})
         os._exit(0)
     except Exception as e:
         logger.error("Failed to restart server: %s", e)
+
+
+@settings_bp.route('/version', methods=['GET'])
+def get_version():
+    """Return the current git commit hash and date."""
+    try:
+        repo_root = Path(__file__).parents[2]
+        result = subprocess.run(
+            ['git', 'log', '-1', '--format=%h %ad', '--date=short'],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return jsonify({"success": False, "error": "Not a git repository"}), 500
+
+        commit, _, date = result.stdout.strip().partition(' ')
+        return jsonify({"success": True, "commit": commit, "date": date})
+    except Exception as e:
+        logger.error("Failed to get version: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @settings_bp.route('/restart', methods=['POST'])

@@ -1512,6 +1512,8 @@ async function openSettingsModal() {
     namingInput.value = currentSettings.file_naming_pattern || '{shot}';
     updateNamingPreview();
 
+    fetchVersion();
+
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';
     requestAnimationFrame(() => {
@@ -1528,6 +1530,24 @@ function closeSettingsModal() {
     setTimeout(() => {
         modal.style.display = 'none';
     }, 200);
+}
+
+async function fetchVersion() {
+    const el = document.getElementById('app-version');
+    try {
+        const res = await fetch('/api/settings/version');
+        const data = await res.json();
+        el.textContent = data.success ? `${data.commit} (${data.date})` : 'unknown';
+    } catch {
+        el.textContent = 'unknown';
+    }
+}
+
+function copyVersion() {
+    const text = document.getElementById('app-version').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Version copied to clipboard', 'success');
+    });
 }
 
 function insertNamingVar(varName) {

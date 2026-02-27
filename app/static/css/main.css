@@ -2296,6 +2296,35 @@
             font-size: 12px;
         }
 
+        .settings-version-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .settings-version-text {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+            font-family: monospace;
+            user-select: all;
+        }
+
+        .settings-version-copy {
+            background: none;
+            border: none;
+            color: var(--color-text-tertiary);
+            cursor: pointer;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            border-radius: var(--radius-sm);
+            transition: color var(--transition-fast);
+        }
+
+        .settings-version-copy:hover {
+            color: var(--color-text-primary);
+        }
+
         /* Settings modal footer */
         #settings-modal .modal-buttons {
             justify-content: flex-end;
