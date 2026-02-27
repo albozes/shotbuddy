@@ -3,7 +3,7 @@
 </p>
 
 # Shotbuddy
-An application for managing AI-driven image-to-video filmmaking workflows, supporting structured organization, versioning, and annotation of generated stills and videos.
+An application for managing AI-driven image-to-video filmmaking workflows, supporting structured organization, versioning, and annotation of generated stills, videos, and lipsync assets.
 
 ## Project folder layout
 
@@ -15,18 +15,17 @@ shots/
         SH###/
             images/   # versioned stills
             videos/   # versioned videos
-            lipsync/  # lipsync clips (manual storage for lipsync assets)
+            lipsync/  # lipsync assets
     latest_images/    # latest image for each shot
     latest_videos/    # latest video for each shot
 ref-images/           # reference images
 ```
 
-The application automatically manages the latest versions in `latest_images` and `latest_videos` while keeping all historical versions inside the `wip` shot folders.
+The application automatically manages the latest versions in `latest_images` and `latest_videos` while keeping all historical versions and lipsync assets inside the `wip` shot folders.
 
 ## Installation
 
-Follow these steps to get the application running on any operating system. The
-only prerequisite is that `git` is already installed on your machine.
+Follow these steps to get the application running on any operating system. The only prerequisite is that `git` is already installed on your machine.
 
 1. **Install Python 3** – Download and install the latest version of Python 3
    from [python.org](https://www.python.org/downloads/) or use your operating
@@ -100,7 +99,7 @@ Shotbuddy has a straightforward interface, similar to existing shotlist applicat
 
 ![SB_001](https://github.com/user-attachments/assets/aa549433-df68-4ea8-b8c4-c3d1e9bd4059)
 
-Create new shots and iterate versions with simple drag and drop. Generated images and videos are automatically copied into a clean folder structure and renamed to the correct shot. New shots can be added before or in-between existing ones, due to the flexible three-digit shot naming convention. Should there be a need for even more (between SH011 and SH012, for example), naming continues with an underscore (e.g. SH011_050). 
+Create new shots and iterate versions with simple drag and drop. Generated images, videos, and lipsync assets are automatically copied into a clean folder structure and renamed to the correct shot. New shots can be added before or in-between existing ones, due to the flexible three-digit shot naming convention. Should there be a need for even more (between SH011 and SH012, for example), naming continues with an underscore (e.g. SH011_050). 
 
 ![SB_002](https://github.com/user-attachments/assets/27cecc3e-c7bb-4617-90f0-515f8de489d3)
 ![SB_003](https://github.com/user-attachments/assets/d00cc329-0428-4112-b509-4ba5d052a42b)
@@ -120,6 +119,14 @@ Rename shots by clicking on their name. This automatically renames all previous 
 Save reference images in the collapsible sidebar to the right of the UI! These can also be renamed with a click on their names.
 
 ![SB_007](https://github.com/user-attachments/assets/85a56a9f-04ea-4210-83d2-9f63d01eb793)
+
+### Column visibility
+
+Right-click the grid header to toggle columns on or off. The Image and Video columns are visible by default while the Lipsync column is hidden. Shot Name and Notes are always shown. Visibility preferences are saved per project and persist across sessions.
+
+### Lipsync column
+
+The Lipsync column provides a dedicated space for managing lipsync assets per shot. Files are uploaded via drag-and-drop — when dragging over a lipsync cell, a quadrant overlay appears with four labeled drop zones: **Driver** (source audio/video), **Target** (video to sync to), **Result** (final output), and **Custom** (user-labeled files, such as pure audio files). Uploading to custom prompts you for a label that is appended to the filename. Lipsync files are stored in a `lipsync/` directory within each shot's folder.
 
 ## License
 This project is licensed under the [MIT License](./LICENSE.md).
