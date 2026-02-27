@@ -251,10 +251,8 @@
             <div class="settings-section">
                 <div class="settings-section-header">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="13.5" cy="6.5" r="2.5"></circle>
-                        <circle cx="19" cy="13.5" r="2.5"></circle>
-                        <circle cx="13.5" cy="20.5" r="2.5"></circle>
-                        <circle cx="5" cy="13.5" r="2.5"></circle>
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                     <span>Appearance</span>
                 </div>
@@ -289,8 +287,15 @@
             <div class="settings-section">
                 <div class="settings-section-header">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg>
                     <span>Behavior</span>
                 </div>
@@ -362,6 +367,27 @@
                         <span class="settings-action-desc">Show the quick-start tips again</span>
                     </div>
                     <button class="dark-button settings-action-btn" onclick="resetOnboarding()">Reset</button>
+                </div>
+            </div>
+
+            <!-- Version -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <line x1="1.05" y1="12" x2="7" y2="12"></line>
+                        <line x1="17.01" y1="12" x2="22.96" y2="12"></line>
+                    </svg>
+                    <span>Version</span>
+                </div>
+                <div class="settings-version-row">
+                    <span id="app-version" class="settings-version-text">Loading...</span>
+                    <button class="settings-version-copy" onclick="copyVersion()" title="Copy version">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
