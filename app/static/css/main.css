@@ -508,14 +508,19 @@
 
         /* Project Drawer */
         .project-drawer {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height var(--transition-slow);
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             border-top: 1px solid transparent;
         }
 
+        .project-drawer-inner {
+            overflow: hidden;
+            min-height: 0;
+        }
+
         .app-bar.drawer-open .project-drawer {
-            max-height: 140px;
+            grid-template-rows: 1fr;
             border-top-color: var(--color-border-subtle);
         }
 
@@ -590,6 +595,76 @@
             border-color: var(--color-border);
         }
 
+        /* Project Drawer Settings */
+        .project-drawer-divider {
+            height: 1px;
+            background: var(--color-border-subtle);
+            margin: var(--space-2) var(--space-5);
+        }
+
+        .project-drawer-settings {
+            padding: 0 var(--space-5) var(--space-4);
+        }
+
+        .drawer-settings-section {
+            margin-top: var(--space-2);
+        }
+
+        .drawer-settings-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) 0;
+            cursor: pointer;
+            color: var(--color-text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            user-select: none;
+            transition: color var(--transition-fast);
+        }
+
+        .drawer-settings-header:hover {
+            color: var(--color-text-primary);
+        }
+
+        .drawer-section-chevron {
+            margin-left: auto;
+            transition: transform var(--transition-fast);
+        }
+
+        .drawer-settings-section.open .drawer-section-chevron {
+            transform: rotate(180deg);
+        }
+
+        .drawer-settings-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .drawer-settings-body-inner {
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .drawer-settings-section.open .drawer-settings-body {
+            grid-template-rows: 1fr;
+        }
+
+        .drawer-settings-section.open .drawer-settings-body-inner {
+            overflow: visible;
+        }
+
+        .drawer-field {
+            padding: var(--space-2) 0;
+        }
+
+        .drawer-danger-zone {
+            border-top: 1px solid var(--color-border-subtle);
+            margin-top: var(--space-2);
+            padding-top: var(--space-3);
+        }
+
         /* Main Container */
         .main-content-wrapper {
             display: flex;
@@ -636,7 +711,11 @@
             top: 49px;
             z-index: 20;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
-            transition: margin 0.3s ease, border-radius 0.3s ease, padding 0.3s ease, grid-template-columns 0.3s ease;
+            transition: margin 0.3s ease, border-radius 0.3s ease, padding 0.3s ease, padding-left var(--transition-base), grid-template-columns 0.3s ease;
+        }
+
+        .grid-header.artist-visible {
+            padding-left: 34px;
         }
 
         .grid-header.stuck {
@@ -645,6 +724,10 @@
             border-radius: 0;
             padding-left: calc(50vw - 50% + 10px);
             padding-right: calc(50vw - 50% + 10px);
+        }
+
+        .grid-header.stuck.artist-visible {
+            padding-left: calc(50vw - 50% + 34px);
         }
 
         .grid-header-cell {
@@ -722,7 +805,7 @@
             padding-bottom: 10px;
             cursor: default;
             box-shadow: var(--shadow-sm);
-            transition: background 0.15s ease, grid-template-columns 0.3s ease;
+            transition: background 0.15s ease, grid-template-columns 0.3s ease, padding-left var(--transition-base);
         }
 
         .shot-row:hover {
@@ -742,7 +825,7 @@
             transition: opacity 0.15s ease;
         }
 
-        .shot-row .column-hidden {
+        .shot-row .column-hidden.column-hidden {
             opacity: 0;
         }
 
@@ -1853,9 +1936,9 @@
             left: 0;
             top: 0;
             bottom: 0;
-            width: 24px;
+            width: 0;
             border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             font-size: 11px;
@@ -1864,19 +1947,24 @@
             cursor: pointer;
             z-index: 2;
             letter-spacing: 0.5px;
-            transition: width var(--transition-fast), opacity var(--transition-fast);
+            opacity: 0;
+            overflow: hidden;
+            pointer-events: none;
+            transition: width var(--transition-base), opacity var(--transition-base);
             user-select: none;
         }
 
         .artist-visible .artist-strip {
-            display: flex;
+            width: 24px;
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .artist-visible {
             padding-left: 24px;
         }
 
-        .artist-strip:hover {
+        .artist-visible .artist-strip:hover {
             width: 28px;
         }
 
@@ -1935,14 +2023,15 @@
 
         .artist-dropdown-item {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
+            align-items: stretch;
+            gap: 0;
+            padding: 0;
             border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 13px;
             color: var(--color-text-secondary);
             transition: background var(--transition-fast);
+            overflow: hidden;
         }
 
         .artist-dropdown-item:hover {
@@ -1954,17 +2043,17 @@
             color: var(--color-accent);
         }
 
-        .artist-dropdown-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
+        .artist-dropdown-strip {
+            width: 4px;
             flex-shrink: 0;
+            border-radius: 2px 0 0 2px;
         }
 
         .artist-dropdown-name {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            padding: 6px 8px;
         }
 
         .artist-dropdown-create {
@@ -1990,26 +2079,81 @@
             font-size: 12px;
         }
 
+        .artist-dropdown-color-title {
+            padding: 6px 8px;
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .artist-dropdown-color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            padding: 4px 8px 8px;
+        }
+
+        .artist-dropdown-color-opt {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .artist-dropdown-color-opt:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+        }
+
+        .artist-dropdown-color-opt.selected {
+            border-color: var(--color-text-primary);
+        }
+
         /* Artist Settings Management */
         .artist-settings-list {
             display: flex;
             flex-direction: column;
             gap: 6px;
+            overflow: visible;
+            padding-left: 4px;
         }
 
         .artist-settings-row {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+        }
+
+        .artist-delete-btn {
+            color: var(--color-text-tertiary);
+            flex-shrink: 0;
+            padding: 2px;
+            opacity: 0.4;
+            transition: opacity var(--transition-fast), color var(--transition-fast);
+        }
+
+        .artist-settings-row:hover .artist-delete-btn {
+            opacity: 1;
+        }
+
+        .artist-delete-btn:hover {
+            color: var(--color-error);
+            opacity: 1;
         }
 
         .artist-swatch-btn {
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             border: 2px solid transparent;
             cursor: pointer;
             flex-shrink: 0;
+            padding: 0;
+            line-height: 0;
             transition: transform var(--transition-fast), box-shadow var(--transition-fast);
         }
 
@@ -2019,8 +2163,8 @@
         }
 
         .artist-name-input {
-            flex: 1;
-            padding: 4px 8px;
+            width: 140px;
+            padding: 3px 8px;
             background: var(--color-bg-input);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-sm);
@@ -2031,14 +2175,6 @@
         .artist-name-input:focus {
             outline: none;
             border-color: var(--color-accent);
-        }
-
-        .artist-delete-btn {
-            color: var(--color-text-tertiary);
-        }
-
-        .artist-delete-btn:hover {
-            color: var(--color-error);
         }
 
         .artist-color-picker {

@@ -49,6 +49,7 @@
             </div>
         </div>
         <div class="project-drawer" id="project-drawer">
+            <div class="project-drawer-inner">
             <div class="project-drawer-row">
                 <input
                     id="manual-path-input"
@@ -61,6 +62,82 @@
                 <button class="dark-button" id="close-project-btn" onclick="closeProject()" style="display:none;">Close</button>
             </div>
             <div class="recent-projects" id="recent-projects"></div>
+
+            <!-- Project Settings (only visible when a project is open) -->
+            <div class="project-drawer-settings" id="project-drawer-settings" style="display:none;">
+                <div class="project-drawer-divider"></div>
+
+                <!-- Artists -->
+                <div class="drawer-settings-section">
+                    <div class="drawer-settings-header" onclick="toggleDrawerSection(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>Artists</span>
+                        <svg class="drawer-section-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="drawer-settings-body">
+                        <div class="drawer-settings-body-inner">
+                        <div id="drawer-artist-management">
+                            <!-- Populated by JS -->
+                        </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Management -->
+                <div class="drawer-settings-section">
+                    <div class="drawer-settings-header" onclick="toggleDrawerSection(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span>File Naming</span>
+                        <svg class="drawer-section-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="drawer-settings-body">
+                        <div class="drawer-settings-body-inner">
+                        <div class="drawer-field">
+                            <label for="drawer-file-naming-pattern" class="settings-label">File Naming Pattern</label>
+                            <div class="naming-var-buttons">
+                                <button type="button" class="naming-var-btn" onclick="insertNamingVar('{project}', 'drawer-file-naming-pattern')">{project}</button>
+                                <button type="button" class="naming-var-btn" onclick="insertNamingVar('{shot}', 'drawer-file-naming-pattern')">{shot}</button>
+                                <button type="button" class="naming-var-btn" onclick="insertNamingVar('{date}', 'drawer-file-naming-pattern')">{date}</button>
+                            </div>
+                            <input type="text" id="drawer-file-naming-pattern" class="settings-input"
+                                   placeholder="{shot}" oninput="updateNamingPreview('drawer-file-naming-pattern', 'drawer-naming-preview')">
+                            <p id="drawer-naming-preview" class="settings-hint naming-preview">Preview: SH010_v001.jpg</p>
+                            <p class="settings-hint">Version and extension are added automatically. <code>{shot}</code> is required.</p>
+                        </div>
+                        <div class="drawer-field">
+                            <button type="button" class="dark-button" onclick="saveProjectDrawerSettings()" style="margin-top: 4px;">Save</button>
+                        </div>
+                        <div class="drawer-field drawer-danger-zone">
+                            <div class="danger-zone-header">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                                <span>Rename Existing Files</span>
+                            </div>
+                            <p class="settings-hint">Apply the current naming pattern to all existing files. This cannot be undone.</p>
+                            <button type="button" class="danger-button" onclick="confirmApplyNaming('drawer-file-naming-pattern')">Apply to Existing Files</button>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
         </div>
     </div>
 
@@ -321,59 +398,6 @@
                         <option value="latest_folder">Latest version across all shots</option>
                         <option value="version_folder">Latest version within the shot's folder</option>
                     </select>
-                </div>
-            </div>
-
-            <!-- Artists -->
-            <div class="settings-section">
-                <div class="settings-section-header">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="9" cy="7" r="4"></circle>
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                    </svg>
-                    <span>Artists</span>
-                </div>
-                <div class="settings-field" id="artist-management">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-
-            <!-- File Management -->
-            <div class="settings-section">
-                <div class="settings-section-header">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                    </svg>
-                    <span>File Management</span>
-                </div>
-                <div class="settings-field">
-                    <label for="file-naming-pattern" class="settings-label">File Naming Pattern</label>
-                    <div class="naming-var-buttons">
-                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{project}')">{project}</button>
-                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{shot}')">{shot}</button>
-                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{date}')">{date}</button>
-                    </div>
-                    <input type="text" id="file-naming-pattern" class="settings-input"
-                           placeholder="{shot}" oninput="updateNamingPreview()">
-                    <p id="naming-preview" class="settings-hint naming-preview">Preview: SH010_v001.jpg</p>
-                    <p class="settings-hint">Version and extension are added automatically. <code>{shot}</code> is required.</p>
-                </div>
-                <div class="settings-field settings-danger-zone">
-                    <div class="danger-zone-header">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                        <span>Rename Existing Files</span>
-                    </div>
-                    <p class="settings-hint">Apply the current naming pattern to all existing files. This cannot be undone.</p>
-                    <button type="button" class="danger-button" onclick="confirmApplyNaming()">Apply to Existing Files</button>
                 </div>
             </div>
 

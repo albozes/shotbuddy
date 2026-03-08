@@ -225,12 +225,21 @@ class ProjectManager:
         project_settings = self.load_project_settings()
         shared_data = self.load_shared_project_data(_project_settings=project_settings)
 
-        # Merge global, local project, and shared project settings
+        # Migration: move file_naming_pattern from global to shared if needed
+        if 'file_naming_pattern' in global_settings and 'file_naming_pattern' not in shared_data:
+            shared_data['file_naming_pattern'] = global_settings.pop('file_naming_pattern')
+            self.save_projects()
+            self.save_shared_project_data(shared_data)
+
+        return self._build_settings_response(global_settings, project_settings, shared_data)
+
+    def _build_settings_response(self, global_settings, project_settings, shared_data):
+        """Build the merged settings response dict."""
         return {
             'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
             'color_theme': global_settings.get('color_theme', 'default'),
             'color_mode': global_settings.get('color_mode', 'dark'),
-            'file_naming_pattern': global_settings.get('file_naming_pattern', '{shot}'),
+            'file_naming_pattern': shared_data.get('file_naming_pattern', '{shot}'),
             'collapsed_shots': project_settings.get('collapsed_shots', []),
             'visible_columns': project_settings.get('visible_columns', ['image', 'video']),
             'artists': shared_data.get('artists', []),
@@ -239,9 +248,9 @@ class ProjectManager:
 
     def update_settings(self, settings_dict):
         """Update user settings and save (handles global, local project, and shared project settings)."""
-        global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode', 'file_naming_pattern']
+        global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode']
         project_settings_keys = ['collapsed_shots', 'visible_columns']
-        shared_project_keys = ['artists', 'shot_artists']
+        shared_project_keys = ['artists', 'shot_artists', 'file_naming_pattern']
 
         # Update global settings
         if 'settings' not in self.projects:
@@ -274,14 +283,5 @@ class ProjectManager:
 
         # Build response from already-loaded data to avoid re-reading files
         global_settings = self.projects.get('settings', {})
-        return {
-            'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
-            'color_theme': global_settings.get('color_theme', 'default'),
-            'color_mode': global_settings.get('color_mode', 'dark'),
-            'file_naming_pattern': global_settings.get('file_naming_pattern', '{shot}'),
-            'collapsed_shots': project_settings.get('collapsed_shots', []),
-            'visible_columns': project_settings.get('visible_columns', ['image', 'video']),
-            'artists': shared_data.get('artists', []),
-            'shot_artists': shared_data.get('shot_artists', {})
-        }
+        return self._build_settings_response(global_settings, project_settings, shared_data)
 

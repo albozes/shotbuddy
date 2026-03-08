@@ -38,6 +38,7 @@
             const header = document.getElementById('main-grid-header');
             if (!header) return;
             header.innerHTML = '';
+            header.classList.toggle('artist-visible', isArtistVisible());
             const visibleIds = getVisibleColumnIds();
             for (const col of COLUMN_CONFIG) {
                 const cell = document.createElement('div');
@@ -133,13 +134,8 @@
         }
 
         function toggleCellClasses(columnId, hidden) {
-            document.querySelectorAll(`.grid-header-cell[data-column="${columnId}"]`).forEach(el => {
+            document.querySelectorAll(`.grid-header-cell[data-column="${columnId}"], .shot-row [data-column="${columnId}"]`).forEach(el => {
                 el.classList.toggle('column-hidden', hidden);
-            });
-            document.querySelectorAll('.shot-row').forEach(row => {
-                const colIndex = COLUMN_CONFIG.findIndex(c => c.id === columnId);
-                const cell = row.children[colIndex];
-                if (cell) cell.classList.toggle('column-hidden', hidden);
             });
         }
 
@@ -157,11 +153,13 @@
 
             currentSettings.visible_columns = visibleColumns;
 
-            // Artist strip is not a grid column — toggle via class on rows
+            // Artist strip is not a grid column — toggle via class on rows and header
             if (columnId === 'artist') {
                 document.querySelectorAll('.shot-row').forEach(row => {
                     row.classList.toggle('artist-visible', visible);
                 });
+                const header = document.getElementById('main-grid-header');
+                if (header) header.classList.toggle('artist-visible', visible);
             } else {
                 if (!visible) {
                     // Hiding: fade out content first, then resize column
@@ -170,19 +168,16 @@
                 } else {
                     // Showing: resize column first, then fade in content together
                     applyGridTemplate();
-                    const colIndex = COLUMN_CONFIG.findIndex(c => c.id === columnId);
                     // Add fade-in class to override the collapse-animation delay on row cells
-                    document.querySelectorAll('.shot-row').forEach(row => {
-                        const cell = row.children[colIndex];
-                        if (cell) cell.classList.add('column-fade-in');
+                    document.querySelectorAll(`.shot-row [data-column="${columnId}"]`).forEach(cell => {
+                        cell.classList.add('column-fade-in');
                     });
                     setTimeout(() => {
                         toggleCellClasses(columnId, false);
                         // Clean up fade-in class after transition completes
                         setTimeout(() => {
-                            document.querySelectorAll('.shot-row').forEach(row => {
-                                const cell = row.children[colIndex];
-                                if (cell) cell.classList.remove('column-fade-in');
+                            document.querySelectorAll(`.shot-row [data-column="${columnId}"]`).forEach(cell => {
+                                cell.classList.remove('column-fade-in');
                             });
                         }, 200);
                     }, 300);
@@ -204,15 +199,63 @@
 
         function toggleProjectDrawer() {
             const appBar = document.querySelector('.app-bar');
-            appBar.classList.toggle('drawer-open');
-            if (appBar.classList.contains('drawer-open')) {
+            const opening = !appBar.classList.contains('drawer-open');
+            appBar.classList.toggle('drawer-open', opening);
+            if (opening) {
                 loadRecentProjects();
+                populateProjectDrawerSettings();
                 document.getElementById('manual-path-input').focus();
             }
         }
 
         function closeProjectDrawer() {
             document.querySelector('.app-bar').classList.remove('drawer-open');
+        }
+
+        function toggleDrawerSection(headerEl) {
+            headerEl.closest('.drawer-settings-section').classList.toggle('open');
+        }
+
+        function populateProjectDrawerSettings() {
+            const container = document.getElementById('project-drawer-settings');
+            if (!container) return;
+            if (!currentProject) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = '';
+            renderArtistManagement();
+            const namingInput = document.getElementById('drawer-file-naming-pattern');
+            if (namingInput) {
+                namingInput.value = currentSettings.file_naming_pattern || '{shot}';
+                updateNamingPreview('drawer-file-naming-pattern', 'drawer-naming-preview');
+            }
+        }
+
+        async function saveProjectDrawerSettings() {
+            const namingInput = document.getElementById('drawer-file-naming-pattern');
+            const pattern = namingInput ? namingInput.value.trim() || '{shot}' : '{shot}';
+            if (!pattern.includes('{shot}')) {
+                showNotification('Naming pattern must include {shot}', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_naming_pattern: pattern })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    currentSettings.file_naming_pattern = pattern;
+                    showNotification('File naming saved', 'success');
+                } else {
+                    showNotification(result.error || 'Failed to save', 'error');
+                }
+            } catch (e) {
+                console.error('Failed to save project settings:', e);
+                showNotification('Failed to save project settings', 'error');
+            }
         }
 
         async function closeProject() {
@@ -268,7 +311,9 @@
         // Close drawer when clicking outside
         document.addEventListener('click', function(e) {
             const appBar = document.querySelector('.app-bar');
-            if (appBar.classList.contains('drawer-open') && !e.target.closest('.app-bar')) {
+            // If the click target was removed from the DOM (e.g. by a re-render),
+            // it won't be connected to the document — don't treat that as "outside".
+            if (appBar.classList.contains('drawer-open') && e.target.isConnected && !e.target.closest('.app-bar')) {
                 closeProjectDrawer();
             }
         });
@@ -453,7 +498,9 @@
             document.querySelector('.app-bar').classList.add('drawer-open');
             document.getElementById('app-bar-controls').style.display = 'none';
             document.getElementById('close-project-btn').style.display = 'none';
+            document.getElementById('project-drawer-settings').style.display = 'none';
             loadRecentProjects();
+            // Drawer opens via CSS grid-template-rows transition from .drawer-open class
             activateOnboarding();
             setTimeout(() => checkOnboardingTips(), 600);
         }
@@ -676,11 +723,11 @@
 
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
-                <div class="column-cell${isColumnVisible('image') ? '' : ' column-hidden'}">${createDropZone(shot, 'image')}</div>
-                <div class="column-cell${isColumnVisible('video') ? '' : ' column-hidden'}">${createDropZone(shot, 'video')}</div>
-                <div class="column-cell${isColumnVisible('lipsync') ? '' : ' column-hidden'}">${createLipsyncZone(shot)}</div>
+                <div class="column-cell${isColumnVisible('image') ? '' : ' column-hidden'}" data-column="image">${createDropZone(shot, 'image')}</div>
+                <div class="column-cell${isColumnVisible('video') ? '' : ' column-hidden'}" data-column="video">${createDropZone(shot, 'video')}</div>
+                <div class="column-cell${isColumnVisible('lipsync') ? '' : ' column-hidden'}" data-column="lipsync">${createLipsyncZone(shot)}</div>
                 ${createArtistStrip(shot)}
-                <div class="notes-cell${isColumnVisible('notes') ? '' : ' column-hidden'}">
+                <div class="notes-cell${isColumnVisible('notes') ? '' : ' column-hidden'}" data-column="notes">
                     <textarea class="notes-input"
                               placeholder="Add notes..."
                               onchange="saveNotes('${shot.name}', this.value)"
@@ -714,8 +761,16 @@
         }
 
         const ARTIST_COLORS = [
-            '#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444',
-            '#EC4899', '#06B6D4', '#8B5CF6', '#F97316', '#14B8A6',
+            '#E05252', // warm red
+            '#E8875B', // soft coral
+            '#E8AA4A', // golden amber
+            '#9FCC5A', // lime green
+            '#4EAD7B', // jade
+            '#3FB5AC', // teal
+            '#4A9FD9', // sky blue
+            '#6B72D9', // periwinkle
+            '#9B6BD9', // soft violet
+            '#D970A8', // rose pink
         ];
 
         function getArtistInitials(name) {
@@ -749,8 +804,13 @@
         }
 
         let activeArtistDropdown = null;
+        let activeDropdownOutsideHandler = null;
 
         function closeArtistDropdown() {
+            if (activeDropdownOutsideHandler) {
+                document.removeEventListener('click', activeDropdownOutsideHandler);
+                activeDropdownOutsideHandler = null;
+            }
             if (activeArtistDropdown) {
                 activeArtistDropdown.remove();
                 activeArtistDropdown = null;
@@ -797,14 +857,15 @@
                 // Unassign option if currently assigned
                 if (currentArtistId && !query) {
                     html += `<div class="artist-dropdown-item artist-dropdown-unassign" data-action="unassign">
-                        <span class="artist-dropdown-x">&times;</span> Unassign
+                        <span class="artist-dropdown-strip" style="background: var(--color-text-tertiary);"></span>
+                        <span class="artist-dropdown-name"><span class="artist-dropdown-x">&times;</span> Unassign</span>
                     </div>`;
                 }
 
                 filtered.forEach(a => {
                     const active = a.id === currentArtistId ? ' active' : '';
                     html += `<div class="artist-dropdown-item${active}" data-id="${a.id}">
-                        <span class="artist-dropdown-dot" style="background: ${a.color};"></span>
+                        <span class="artist-dropdown-strip" style="background: ${a.color};"></span>
                         <span class="artist-dropdown-name">${escapeAttr(a.name)}</span>
                     </div>`;
                 });
@@ -812,7 +873,8 @@
                 // Show "Create" option if query doesn't match any existing artist
                 if (query && !artists.some(a => a.name.toLowerCase() === query)) {
                     html += `<div class="artist-dropdown-item artist-dropdown-create" data-action="create">
-                        <span class="artist-dropdown-plus">+</span> Create "${escapeAttr(filter)}"
+                        <span class="artist-dropdown-strip" style="background: ${getNextArtistColor()};"></span>
+                        <span class="artist-dropdown-name"><span class="artist-dropdown-plus">+</span> Create "${escapeAttr(filter)}"</span>
                     </div>`;
                 }
 
@@ -845,14 +907,7 @@
                 if (item.dataset.action === 'create') {
                     const name = searchInput.value.trim();
                     if (!name) return;
-                    const newArtist = { id: generateArtistId(), name, color: getNextArtistColor() };
-                    const artistsList = [...(currentSettings.artists || []), newArtist];
-                    const shotArtists = { ...(currentSettings.shot_artists || {}), [shotName]: newArtist.id };
-                    currentSettings.artists = artistsList;
-                    currentSettings.shot_artists = shotArtists;
-                    await saveArtistSettings();
-                    closeArtistDropdown();
-                    refreshArtistStrip(shotName);
+                    showDropdownColorPicker(dropdown, name, shotName);
                     return;
                 }
 
@@ -868,17 +923,49 @@
 
             // Close on click outside
             setTimeout(() => {
-                document.addEventListener('click', function handler(e) {
+                activeDropdownOutsideHandler = function(e) {
                     if (!dropdown.contains(e.target)) {
                         closeArtistDropdown();
-                        document.removeEventListener('click', handler);
                     }
-                });
+                };
+                document.addEventListener('click', activeDropdownOutsideHandler);
             }, 0);
 
             // Close on Escape
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeArtistDropdown();
+            });
+        }
+
+        function showDropdownColorPicker(dropdown, artistName, shotName) {
+            // Defer DOM replacement so the click-outside handler still sees
+            // the original target inside the dropdown during this event cycle.
+            requestAnimationFrame(() => {
+                const listEl = dropdown.querySelector('.artist-dropdown-list');
+                const searchInput = dropdown.querySelector('.artist-dropdown-search');
+                if (searchInput) searchInput.style.display = 'none';
+
+                const defaultColor = getNextArtistColor();
+                let html = '<div class="artist-dropdown-color-title">Pick a color for ' + escapeAttr(artistName) + '</div>';
+                html += '<div class="artist-dropdown-color-grid">';
+                ARTIST_COLORS.forEach(color => {
+                    const selected = color === defaultColor ? ' selected' : '';
+                    html += `<button class="artist-dropdown-color-opt${selected}" style="background: ${color};" data-color="${color}"></button>`;
+                });
+                html += '</div>';
+                listEl.innerHTML = html;
+
+                listEl.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('.artist-dropdown-color-opt');
+                    if (!btn) return;
+                    const color = btn.dataset.color;
+                    const newArtist = { id: generateArtistId(), name: artistName, color };
+                    currentSettings.artists = [...(currentSettings.artists || []), newArtist];
+                    currentSettings.shot_artists = { ...(currentSettings.shot_artists || {}), [shotName]: newArtist.id };
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                });
             });
         }
 
@@ -898,7 +985,7 @@
         }
 
         function renderArtistManagement() {
-            const container = document.getElementById('artist-management');
+            const container = document.getElementById('drawer-artist-management');
             if (!container) return;
             const artists = currentSettings.artists || [];
 
@@ -906,12 +993,12 @@
             artists.forEach(a => {
                 html += `
                     <div class="artist-settings-row" data-id="${a.id}">
+                        <button class="btn btn-icon btn-ghost artist-delete-btn" onclick="deleteArtistInSettings(event, '${a.id}')" title="Remove artist">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                         <button class="artist-swatch-btn" style="background: ${a.color};" onclick="openArtistColorPicker(event, '${a.id}')" title="Change color"></button>
                         <input type="text" class="artist-name-input" value="${escapeAttr(a.name)}" data-id="${a.id}"
                                onchange="renameArtistInSettings('${a.id}', this.value)">
-                        <button class="btn btn-icon btn-ghost artist-delete-btn" onclick="deleteArtistInSettings('${a.id}')" title="Delete artist">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
                     </div>`;
             });
             html += '</div>';
@@ -942,7 +1029,8 @@
             }
         }
 
-        function deleteArtistInSettings(artistId) {
+        function deleteArtistInSettings(event, artistId) {
+            event.stopPropagation();
             currentSettings.artists = (currentSettings.artists || []).filter(a => a.id !== artistId);
             // Remove all assignments referencing this artist
             const shotArtists = { ...(currentSettings.shot_artists || {}) };
@@ -2026,12 +2114,7 @@ async function openSettingsModal() {
         s.classList.toggle('active', s.dataset.theme === activeTheme);
     });
 
-    const namingInput = document.getElementById('file-naming-pattern');
-    namingInput.value = currentSettings.file_naming_pattern || '{shot}';
-    updateNamingPreview();
-
     fetchVersion();
-    renderArtistManagement();
 
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';
@@ -2069,20 +2152,25 @@ function copyVersion() {
     });
 }
 
-function insertNamingVar(varName) {
-    const input = document.getElementById('file-naming-pattern');
+function insertNamingVar(varName, inputId) {
+    inputId = inputId || 'drawer-file-naming-pattern';
+    const input = document.getElementById(inputId);
     const start = input.selectionStart;
     const end = input.selectionEnd;
     const value = input.value;
     input.value = value.substring(0, start) + varName + value.substring(end);
     input.selectionStart = input.selectionEnd = start + varName.length;
     input.focus();
-    updateNamingPreview();
+    const previewId = inputId.replace('file-naming-pattern', 'naming-preview');
+    updateNamingPreview(inputId, previewId);
 }
 
-function updateNamingPreview() {
-    const input = document.getElementById('file-naming-pattern');
-    const preview = document.getElementById('naming-preview');
+function updateNamingPreview(inputId, previewId) {
+    inputId = inputId || 'drawer-file-naming-pattern';
+    previewId = previewId || 'drawer-naming-preview';
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (!input || !preview) return;
     const pattern = input.value.trim() || '{shot}';
     const projectName = currentProject ? currentProject.name : 'ProjectName';
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -2093,8 +2181,9 @@ function updateNamingPreview() {
     preview.textContent = 'Preview: ' + resolved + '_v001.jpg';
 }
 
-function _getNamingPatternFromInput() {
-    const input = document.getElementById('file-naming-pattern');
+function _getNamingPatternFromInput(inputId) {
+    inputId = inputId || 'drawer-file-naming-pattern';
+    const input = document.getElementById(inputId);
     const pattern = input.value.trim() || '{shot}';
     if (!pattern.includes('{shot}')) {
         showNotification('Naming pattern must include {shot}', 'error');
@@ -2103,8 +2192,8 @@ function _getNamingPatternFromInput() {
     return pattern;
 }
 
-async function confirmApplyNaming() {
-    const pattern = _getNamingPatternFromInput();
+async function confirmApplyNaming(inputId) {
+    const pattern = _getNamingPatternFromInput(inputId);
     if (!pattern) return;
     try {
         const response = await fetch('/api/settings/rename-files-preview', {
@@ -2139,7 +2228,7 @@ function closeRenameModal() {
 }
 
 async function executeApplyNaming() {
-    const pattern = _getNamingPatternFromInput();
+    const pattern = _getNamingPatternFromInput('drawer-file-naming-pattern');
     if (!pattern) return;
     closeRenameModal();
     showNotification('Renaming files...', 'info');
@@ -2155,7 +2244,6 @@ async function executeApplyNaming() {
                 (result.errors > 0 ? ` (${result.errors} errors)` : '');
             showNotification(msg, result.errors > 0 ? 'warning' : 'success');
             currentSettings.file_naming_pattern = pattern;
-            closeSettingsModal();
             if (typeof loadShots === 'function') loadShots();
         } else {
             showNotification(result.error || 'Failed to rename files', 'error');
@@ -2168,13 +2256,6 @@ async function executeApplyNaming() {
 
 async function saveSettings() {
     const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
-    const namingInput = document.getElementById('file-naming-pattern');
-    const namingPattern = namingInput.value.trim() || '{shot}';
-
-    if (!namingPattern.includes('{shot}')) {
-        showNotification('Naming pattern must include {shot}', 'error');
-        return;
-    }
 
     const activeSwatch = document.querySelector('.theme-swatch.active');
     const selectedTheme = activeSwatch ? activeSwatch.dataset.theme : 'default';
@@ -2182,8 +2263,7 @@ async function saveSettings() {
     const newSettings = {
         thumbnail_click_behavior: thumbnailDropdown.value,
         color_theme: selectedTheme,
-        color_mode: currentSettings.color_mode || 'dark',
-        file_naming_pattern: namingPattern
+        color_mode: currentSettings.color_mode || 'dark'
     };
 
     try {
