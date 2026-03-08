@@ -15,24 +15,23 @@
             { id: 'collapse',  label: '',           width: '50px',  fixed: true },
         ];
 
-        function getVisibleColumns() {
-            const visible = (typeof currentSettings !== 'undefined' && currentSettings.visible_columns)
+        function getVisibleColumnIds() {
+            return (typeof currentSettings !== 'undefined' && currentSettings.visible_columns)
                 || COLUMN_CONFIG.filter(c => c.fixed || c.defaultVisible).map(c => c.id);
+        }
+
+        function getVisibleColumns() {
+            const visible = getVisibleColumnIds();
             return COLUMN_CONFIG.filter(c => c.fixed || visible.includes(c.id));
         }
 
-        function getGridTemplate() {
-            return getVisibleColumns().map(c => c.width).join(' ');
-        }
-
         function applyGridTemplate() {
-            document.documentElement.style.setProperty('--grid-columns', getGridTemplate());
+            const template = getVisibleColumns().map(c => c.width).join(' ');
+            document.documentElement.style.setProperty('--grid-columns', template);
         }
 
         function isColumnVisible(columnId) {
-            const visible = (typeof currentSettings !== 'undefined' && currentSettings.visible_columns)
-                || COLUMN_CONFIG.filter(c => c.fixed || c.defaultVisible).map(c => c.id);
-            return visible.includes(columnId);
+            return getVisibleColumnIds().includes(columnId);
         }
 
         function renderGridHeader() {
@@ -334,6 +333,21 @@
                 dragCounter = 0;
                 document.body.classList.remove('dragging-files');
             });
+
+            // Sticky header detection — add 'stuck' class when header is pinned
+            const gridHeader = document.getElementById('main-grid-header');
+            if (gridHeader) {
+                const sentinel = document.createElement('div');
+                sentinel.style.height = '1px';
+                sentinel.style.width = '100%';
+                sentinel.style.pointerEvents = 'none';
+                gridHeader.parentNode.insertBefore(sentinel, gridHeader);
+
+                const observer = new IntersectionObserver(([entry]) => {
+                    gridHeader.classList.toggle('stuck', !entry.isIntersecting);
+                }, { rootMargin: '-49px 0px 0px 0px' });
+                observer.observe(sentinel);
+            }
         });
 
         function handlePromptButtonClick(event) {
@@ -402,6 +416,9 @@
             // Show skeleton loading, hide actual grid
             document.getElementById('skeleton-loading').style.display = 'block';
             document.getElementById('shot-grid').style.display = 'none';
+
+            // Wait for settings so column visibility is correct before rendering
+            await settingsReady;
 
             const skeletonStart = Date.now();
             const MIN_SKELETON_TIME = 400; // Minimum time to show skeleton (ms)
@@ -726,28 +743,32 @@
                     </div>`;
             }
 
-            // Quadrant drop overlay (shown only during drag)
+            // Quadrant drop overlay (shown on drag, and on hover when empty)
             const quadrantOverlay = `
                 <div class="lipsync-drop-overlay">
                     <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'driver')"
                          ondragover="handleLipsyncQuadrantDragOver(event)"
                          ondrop="handleDrop(event, '${shot.name}', 'driver')"
                          ondragleave="handleLipsyncQuadrantDragLeave(event)">
-                        <span class="quadrant-label">Drv</span>
+                        <span class="quadrant-label">Driver</span>
                     </div>
                     <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'target')"
                          ondragover="handleLipsyncQuadrantDragOver(event)"
                          ondrop="handleDrop(event, '${shot.name}', 'target')"
                          ondragleave="handleLipsyncQuadrantDragLeave(event)">
-                        <span class="quadrant-label">Tgt</span>
+                        <span class="quadrant-label">Target</span>
                     </div>
                     <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'result')"
                          ondragover="handleLipsyncQuadrantDragOver(event)"
                          ondrop="handleDrop(event, '${shot.name}', 'result')"
                          ondragleave="handleLipsyncQuadrantDragLeave(event)">
-                        <span class="quadrant-label">Res</span>
+                        <span class="quadrant-label">Result</span>
                     </div>
                     <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'lipsync_custom')"
                          ondragover="handleLipsyncQuadrantDragOver(event)"
                          ondrop="handleLipsyncCustomDrop(event, '${shot.name}')"
                          ondragleave="handleLipsyncQuadrantDragLeave(event)">
@@ -755,7 +776,7 @@
                     </div>
                 </div>`;
 
-            return `<div class="lipsync-cell"
+            return `<div class="lipsync-cell${hasFiles ? '' : ' hover-active'}"
                          ondragenter="handleLipsyncCellDragEnter(event)"
                          ondragover="handleLipsyncCellDragOver(event)"
                          ondragleave="handleLipsyncCellDragLeave(event)"
@@ -808,6 +829,31 @@
 
         function handleLipsyncQuadrantDragLeave(event) {
             event.currentTarget.classList.remove('drag-over');
+        }
+
+        function openLipsyncFileDialog(shotName, fileType) {
+            // Driver and Result only accept video/audio; Target and Custom accept images too
+            const acceptsImages = (fileType !== 'driver' && fileType !== 'result');
+            const accept = acceptsImages ? 'video/*,audio/*,image/*' : 'video/*,audio/*';
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = accept;
+            input.style.display = 'none';
+            input.addEventListener('change', () => {
+                if (input.files && input.files[0]) {
+                    if (fileType === 'lipsync_custom') {
+                        pendingCustomLipsyncFile = input.files[0];
+                        pendingCustomLipsyncShot = shotName;
+                        openLipsyncCustomModal();
+                    } else {
+                        uploadFile(input.files[0], shotName, fileType);
+                    }
+                }
+                input.remove();
+            });
+            document.body.appendChild(input);
+            input.click();
         }
 
         // Custom lipsync drop — stores file temporarily and shows label modal
@@ -1005,6 +1051,15 @@
             }
 
             const file = files[0];
+
+            // Driver and Result only accept video/audio, not images
+            const imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
+            if ((expectedType === 'driver' || expectedType === 'result') &&
+                imageExts.some(ext => file.name.toLowerCase().endsWith(ext))) {
+                showNotification(`${expectedType.charAt(0).toUpperCase() + expectedType.slice(1)} does not accept image files`, 'error');
+                return;
+            }
+
             await uploadFile(file, shotName, expectedType);
         }
 
@@ -1430,6 +1485,8 @@ function closeShotLimitModal() {
 let currentSettings = {
     thumbnail_click_behavior: 'version_folder'
 };
+let _settingsResolve;
+const settingsReady = new Promise(resolve => { _settingsResolve = resolve; });
 
 async function loadSettings() {
     try {
@@ -1451,6 +1508,8 @@ async function loadSettings() {
         }
     } catch (e) {
         console.error('Failed to load settings:', e);
+    } finally {
+        _settingsResolve();
     }
 }
 
