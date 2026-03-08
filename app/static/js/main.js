@@ -83,18 +83,20 @@
                 if (e.key === 'Escape') hideColumnContextMenu();
             });
 
-            menu.addEventListener('change', function(e) {
-                const checkbox = e.target.closest('input[data-column]');
-                if (!checkbox) return;
-                toggleColumnVisibility(checkbox.dataset.column, checkbox.checked);
+            menu.addEventListener('click', function(e) {
+                const btn = e.target.closest('.column-toggle[data-column]');
+                if (!btn) return;
+                const isActive = btn.classList.contains('active');
+                btn.classList.toggle('active', !isActive);
+                toggleColumnVisibility(btn.dataset.column, !isActive);
             });
         }
 
         function showColumnContextMenu(x, y, align) {
             const menu = document.getElementById('column-context-menu');
 
-            menu.querySelectorAll('input[data-column]').forEach(cb => {
-                cb.checked = isColumnVisible(cb.dataset.column);
+            menu.querySelectorAll('.column-toggle[data-column]').forEach(btn => {
+                btn.classList.toggle('active', isColumnVisible(btn.dataset.column));
             });
 
             menu.style.display = 'block';

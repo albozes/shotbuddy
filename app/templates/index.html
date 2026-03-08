@@ -435,18 +435,12 @@
     <!-- Column Visibility Context Menu -->
     <div id="column-context-menu" class="context-menu" style="display: none;">
         <div class="context-menu-title">Columns</div>
-        <label class="context-menu-item">
-            <input type="checkbox" data-column="image" checked> Image
-        </label>
-        <label class="context-menu-item">
-            <input type="checkbox" data-column="video" checked> Video
-        </label>
-        <label class="context-menu-item">
-            <input type="checkbox" data-column="lipsync"> Lip Sync
-        </label>
-        <label class="context-menu-item">
-            <input type="checkbox" data-column="notes" checked> Notes
-        </label>
+        <div class="context-menu-toggles">
+            <button class="column-toggle active" data-column="image">Image</button>
+            <button class="column-toggle active" data-column="video">Video</button>
+            <button class="column-toggle" data-column="lipsync">Lip Sync</button>
+            <button class="column-toggle active" data-column="notes">Notes</button>
+        </div>
     </div>
 
     <!-- Custom Lipsync Label Modal -->

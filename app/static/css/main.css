@@ -1878,26 +1878,34 @@
             color: var(--color-text-tertiary);
         }
 
-        .context-menu-item {
+        .context-menu-toggles {
             display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-2) var(--space-4);
-            font-size: 13px;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+        }
+
+        .column-toggle {
+            padding: var(--space-1) var(--space-3);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-tertiary);
+            background: transparent;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .column-toggle:hover {
             color: var(--color-text-primary);
-            cursor: pointer;
-            transition: background var(--transition-fast);
+            border-color: var(--color-text-secondary);
         }
 
-        .context-menu-item:hover {
-            background: var(--color-bg-hover);
-        }
-
-        .context-menu-item input[type="checkbox"] {
-            accent-color: var(--color-accent);
-            width: 14px;
-            height: 14px;
-            cursor: pointer;
+        .column-toggle.active {
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+            background: color-mix(in srgb, var(--color-accent) 10%, transparent);
         }
 
         /* ===== MODAL SYSTEM ===== */
