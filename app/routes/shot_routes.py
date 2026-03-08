@@ -173,6 +173,15 @@ def rename_shot(project):
         shot_manager = get_shot_manager(project["path"])
         shot_info = shot_manager.rename_shot(old_name, new_name)
 
+        # Update shot_artists mapping for the renamed shot
+        project_manager = current_app.config['PROJECT_MANAGER']
+        shared_data = project_manager.load_shared_project_data()
+        shot_artists = shared_data.get('shot_artists', {})
+        if old_name in shot_artists:
+            shot_artists[new_name] = shot_artists.pop(old_name)
+            shared_data['shot_artists'] = shot_artists
+            project_manager.save_shared_project_data(shared_data)
+
         return jsonify({"success": True, "data": shot_info})
     except ValueError as e:
         return error_response(str(e))
@@ -190,6 +199,15 @@ def delete_shot(project):
 
         shot_manager = get_shot_manager(project["path"])
         shot_manager.delete_empty_shot(shot_name)
+
+        # Remove shot_artists mapping for the deleted shot
+        project_manager = current_app.config['PROJECT_MANAGER']
+        shared_data = project_manager.load_shared_project_data()
+        shot_artists = shared_data.get('shot_artists', {})
+        if shot_name in shot_artists:
+            del shot_artists[shot_name]
+            shared_data['shot_artists'] = shot_artists
+            project_manager.save_shared_project_data(shared_data)
 
         return jsonify({"success": True})
     except ValueError as e:

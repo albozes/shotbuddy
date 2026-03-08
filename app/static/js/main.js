@@ -157,29 +157,36 @@
 
             currentSettings.visible_columns = visibleColumns;
 
-            if (!visible) {
-                // Hiding: fade out content first, then resize column
-                toggleCellClasses(columnId, true);
-                setTimeout(() => applyGridTemplate(), 150);
-            } else {
-                // Showing: resize column first, then fade in content together
-                applyGridTemplate();
-                const colIndex = COLUMN_CONFIG.findIndex(c => c.id === columnId);
-                // Add fade-in class to override the collapse-animation delay on row cells
+            // Artist strip is not a grid column — toggle via class on rows
+            if (columnId === 'artist') {
                 document.querySelectorAll('.shot-row').forEach(row => {
-                    const cell = row.children[colIndex];
-                    if (cell) cell.classList.add('column-fade-in');
+                    row.classList.toggle('artist-visible', visible);
                 });
-                setTimeout(() => {
-                    toggleCellClasses(columnId, false);
-                    // Clean up fade-in class after transition completes
+            } else {
+                if (!visible) {
+                    // Hiding: fade out content first, then resize column
+                    toggleCellClasses(columnId, true);
+                    setTimeout(() => applyGridTemplate(), 150);
+                } else {
+                    // Showing: resize column first, then fade in content together
+                    applyGridTemplate();
+                    const colIndex = COLUMN_CONFIG.findIndex(c => c.id === columnId);
+                    // Add fade-in class to override the collapse-animation delay on row cells
+                    document.querySelectorAll('.shot-row').forEach(row => {
+                        const cell = row.children[colIndex];
+                        if (cell) cell.classList.add('column-fade-in');
+                    });
                     setTimeout(() => {
-                        document.querySelectorAll('.shot-row').forEach(row => {
-                            const cell = row.children[colIndex];
-                            if (cell) cell.classList.remove('column-fade-in');
-                        });
-                    }, 200);
-                }, 300);
+                        toggleCellClasses(columnId, false);
+                        // Clean up fade-in class after transition completes
+                        setTimeout(() => {
+                            document.querySelectorAll('.shot-row').forEach(row => {
+                                const cell = row.children[colIndex];
+                                if (cell) cell.classList.remove('column-fade-in');
+                            });
+                        }, 200);
+                    }, 300);
+                }
             }
 
             try {
@@ -644,6 +651,11 @@
             row.className = 'shot-row';
             row.id = `shot-row-${shot.name}`;
 
+            // Artist strip visibility
+            if (isArtistVisible()) {
+                row.classList.add('artist-visible');
+            }
+
             // Check if shot is collapsed
             const isCollapsed = currentSettings.collapsed_shots && currentSettings.collapsed_shots.includes(shot.name);
             if (isCollapsed) {
@@ -667,6 +679,7 @@
                 <div class="column-cell${isColumnVisible('image') ? '' : ' column-hidden'}">${createDropZone(shot, 'image')}</div>
                 <div class="column-cell${isColumnVisible('video') ? '' : ' column-hidden'}">${createDropZone(shot, 'video')}</div>
                 <div class="column-cell${isColumnVisible('lipsync') ? '' : ' column-hidden'}">${createLipsyncZone(shot)}</div>
+                ${createArtistStrip(shot)}
                 <div class="notes-cell${isColumnVisible('notes') ? '' : ' column-hidden'}">
                     <textarea class="notes-input"
                               placeholder="Add notes..."
@@ -687,6 +700,322 @@
             `;
 
             return row;
+        }
+
+        // ===== ARTIST STRIP =====
+
+        function isArtistVisible() {
+            const cols = getVisibleColumnIds();
+            return cols.includes('artist');
+        }
+
+        const ARTIST_COLORS = [
+            '#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444',
+            '#EC4899', '#06B6D4', '#8B5CF6', '#F97316', '#14B8A6',
+        ];
+
+        function getArtistInitials(name) {
+            const parts = name.trim().split(/\s+/);
+            if (parts.length === 1) return parts[0][0].toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function getNextArtistColor() {
+            const usedColors = (currentSettings.artists || []).map(a => a.color);
+            return ARTIST_COLORS.find(c => !usedColors.includes(c)) || ARTIST_COLORS[0];
+        }
+
+        function generateArtistId() {
+            return Math.random().toString(16).slice(2, 8);
+        }
+
+        function getArtistForShot(shotName) {
+            const artistId = (currentSettings.shot_artists || {})[shotName];
+            if (!artistId) return null;
+            return (currentSettings.artists || []).find(a => a.id === artistId) || null;
+        }
+
+        function createArtistStrip(shot) {
+            const artist = getArtistForShot(shot.name);
+            const bgStyle = artist ? `background: ${artist.color};` : '';
+            const initial = artist ? getArtistInitials(artist.name).charAt(0) : '+';
+            const title = artist ? artist.name : 'Assign artist';
+            const cls = artist ? 'artist-strip' : 'artist-strip artist-strip-empty';
+            return `<div class="${cls}" style="${bgStyle}" title="${title}" onclick="openArtistDropdown(event, '${shot.name}')">${initial}</div>`;
+        }
+
+        let activeArtistDropdown = null;
+
+        function closeArtistDropdown() {
+            if (activeArtistDropdown) {
+                activeArtistDropdown.remove();
+                activeArtistDropdown = null;
+            }
+        }
+
+        function openArtistDropdown(event, shotName) {
+            event.stopPropagation();
+            closeArtistDropdown();
+
+            const trigger = event.currentTarget;
+            const rect = trigger.getBoundingClientRect();
+            const artists = currentSettings.artists || [];
+            const currentArtistId = (currentSettings.shot_artists || {})[shotName];
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'artist-dropdown show';
+            dropdown.innerHTML = `
+                <input type="text" class="artist-dropdown-search" placeholder="Search or add..." autocomplete="off">
+                <div class="artist-dropdown-list"></div>
+            `;
+
+            document.body.appendChild(dropdown);
+            activeArtistDropdown = dropdown;
+
+            // Position dropdown
+            const dropdownRect = dropdown.getBoundingClientRect();
+            let left = rect.left + rect.width / 2 - dropdownRect.width / 2;
+            let top = rect.bottom + 4;
+            if (left < 8) left = 8;
+            if (left + dropdownRect.width > window.innerWidth - 8) left = window.innerWidth - dropdownRect.width - 8;
+            if (top + dropdownRect.height > window.innerHeight - 8) top = rect.top - dropdownRect.height - 4;
+            dropdown.style.left = left + 'px';
+            dropdown.style.top = top + 'px';
+
+            const searchInput = dropdown.querySelector('.artist-dropdown-search');
+            const listEl = dropdown.querySelector('.artist-dropdown-list');
+
+            function renderList(filter) {
+                const query = (filter || '').toLowerCase();
+                const filtered = artists.filter(a => a.name.toLowerCase().includes(query));
+                let html = '';
+
+                // Unassign option if currently assigned
+                if (currentArtistId && !query) {
+                    html += `<div class="artist-dropdown-item artist-dropdown-unassign" data-action="unassign">
+                        <span class="artist-dropdown-x">&times;</span> Unassign
+                    </div>`;
+                }
+
+                filtered.forEach(a => {
+                    const active = a.id === currentArtistId ? ' active' : '';
+                    html += `<div class="artist-dropdown-item${active}" data-id="${a.id}">
+                        <span class="artist-dropdown-dot" style="background: ${a.color};"></span>
+                        <span class="artist-dropdown-name">${a.name}</span>
+                    </div>`;
+                });
+
+                // Show "Create" option if query doesn't match any existing artist
+                if (query && !artists.some(a => a.name.toLowerCase() === query)) {
+                    html += `<div class="artist-dropdown-item artist-dropdown-create" data-action="create">
+                        <span class="artist-dropdown-plus">+</span> Create "${filter}"
+                    </div>`;
+                }
+
+                if (!html) {
+                    html = '<div class="artist-dropdown-empty">Type to add an artist</div>';
+                }
+
+                listEl.innerHTML = html;
+            }
+
+            renderList('');
+            searchInput.focus();
+
+            searchInput.addEventListener('input', () => renderList(searchInput.value.trim()));
+
+            listEl.addEventListener('click', async (e) => {
+                const item = e.target.closest('.artist-dropdown-item');
+                if (!item) return;
+
+                if (item.dataset.action === 'unassign') {
+                    const shotArtists = { ...(currentSettings.shot_artists || {}) };
+                    delete shotArtists[shotName];
+                    currentSettings.shot_artists = shotArtists;
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                    return;
+                }
+
+                if (item.dataset.action === 'create') {
+                    const name = searchInput.value.trim();
+                    if (!name) return;
+                    const newArtist = { id: generateArtistId(), name, color: getNextArtistColor() };
+                    const artistsList = [...(currentSettings.artists || []), newArtist];
+                    const shotArtists = { ...(currentSettings.shot_artists || {}), [shotName]: newArtist.id };
+                    currentSettings.artists = artistsList;
+                    currentSettings.shot_artists = shotArtists;
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                    return;
+                }
+
+                const artistId = item.dataset.id;
+                if (artistId) {
+                    const shotArtists = { ...(currentSettings.shot_artists || {}), [shotName]: artistId };
+                    currentSettings.shot_artists = shotArtists;
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                }
+            });
+
+            // Close on click outside
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (!dropdown.contains(e.target)) {
+                        closeArtistDropdown();
+                        document.removeEventListener('click', handler);
+                    }
+                });
+            }, 0);
+
+            // Close on Escape
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeArtistDropdown();
+            });
+        }
+
+        async function saveArtistSettings() {
+            try {
+                await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        artists: currentSettings.artists || [],
+                        shot_artists: currentSettings.shot_artists || {}
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to save artist settings:', e);
+            }
+        }
+
+        function renderArtistManagement() {
+            const container = document.getElementById('artist-management');
+            if (!container) return;
+            const artists = currentSettings.artists || [];
+
+            let html = '<div class="artist-settings-list">';
+            artists.forEach(a => {
+                html += `
+                    <div class="artist-settings-row" data-id="${a.id}">
+                        <button class="artist-swatch-btn" style="background: ${a.color};" onclick="openArtistColorPicker(event, '${a.id}')" title="Change color"></button>
+                        <input type="text" class="artist-name-input" value="${a.name}" data-id="${a.id}"
+                               onchange="renameArtistInSettings('${a.id}', this.value)"
+                               onblur="renameArtistInSettings('${a.id}', this.value)">
+                        <button class="btn btn-icon btn-ghost artist-delete-btn" onclick="deleteArtistInSettings('${a.id}')" title="Delete artist">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>`;
+            });
+            html += '</div>';
+            html += `<button class="btn btn-sm btn-secondary" onclick="addArtistInSettings()" style="margin-top: 8px;">+ Add Artist</button>`;
+            container.innerHTML = html;
+        }
+
+        function addArtistInSettings() {
+            const newArtist = { id: generateArtistId(), name: 'New Artist', color: getNextArtistColor() };
+            currentSettings.artists = [...(currentSettings.artists || []), newArtist];
+            renderArtistManagement();
+            saveArtistSettings();
+            // Focus the new input
+            const inputs = document.querySelectorAll('.artist-name-input');
+            const lastInput = inputs[inputs.length - 1];
+            if (lastInput) { lastInput.select(); lastInput.focus(); }
+        }
+
+        function renameArtistInSettings(artistId, newName) {
+            newName = newName.trim();
+            if (!newName) return;
+            const artists = currentSettings.artists || [];
+            const artist = artists.find(a => a.id === artistId);
+            if (artist && artist.name !== newName) {
+                artist.name = newName;
+                saveArtistSettings();
+                renderShots();
+            }
+        }
+
+        function deleteArtistInSettings(artistId) {
+            currentSettings.artists = (currentSettings.artists || []).filter(a => a.id !== artistId);
+            // Remove all assignments referencing this artist
+            const shotArtists = { ...(currentSettings.shot_artists || {}) };
+            for (const [shot, id] of Object.entries(shotArtists)) {
+                if (id === artistId) delete shotArtists[shot];
+            }
+            currentSettings.shot_artists = shotArtists;
+            saveArtistSettings();
+            renderArtistManagement();
+            renderShots();
+        }
+
+        let activeColorPicker = null;
+
+        function openArtistColorPicker(event, artistId) {
+            event.stopPropagation();
+            if (activeColorPicker) { activeColorPicker.remove(); activeColorPicker = null; }
+
+            const btn = event.currentTarget;
+            const rect = btn.getBoundingClientRect();
+            const picker = document.createElement('div');
+            picker.className = 'artist-color-picker';
+
+            ARTIST_COLORS.forEach(color => {
+                const dot = document.createElement('button');
+                dot.className = 'artist-color-option';
+                dot.style.background = color;
+                dot.onclick = (e) => {
+                    e.stopPropagation();
+                    const artist = (currentSettings.artists || []).find(a => a.id === artistId);
+                    if (artist) {
+                        artist.color = color;
+                        saveArtistSettings();
+                        renderArtistManagement();
+                        renderShots();
+                    }
+                    picker.remove();
+                    activeColorPicker = null;
+                };
+                picker.appendChild(dot);
+            });
+
+            document.body.appendChild(picker);
+            activeColorPicker = picker;
+
+            // Position
+            const pickerRect = picker.getBoundingClientRect();
+            let left = rect.left;
+            let top = rect.bottom + 4;
+            if (left + pickerRect.width > window.innerWidth - 8) left = window.innerWidth - pickerRect.width - 8;
+            if (top + pickerRect.height > window.innerHeight - 8) top = rect.top - pickerRect.height - 4;
+            picker.style.left = left + 'px';
+            picker.style.top = top + 'px';
+
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (!picker.contains(e.target)) {
+                        picker.remove();
+                        activeColorPicker = null;
+                        document.removeEventListener('click', handler);
+                    }
+                });
+            }, 0);
+        }
+
+        function refreshArtistStrip(shotName) {
+            const row = document.getElementById(`shot-row-${shotName}`);
+            if (!row) return;
+            const shot = shots.find(s => s.name === shotName);
+            if (!shot) return;
+            const oldStrip = row.querySelector('.artist-strip');
+            if (oldStrip) {
+                const temp = document.createElement('div');
+                temp.innerHTML = createArtistStrip(shot);
+                oldStrip.replaceWith(temp.firstElementChild);
+            }
         }
 
         function createDropZone(shot, type) {
@@ -1684,6 +2013,7 @@ async function openSettingsModal() {
     updateNamingPreview();
 
     fetchVersion();
+    renderArtistManagement();
 
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';

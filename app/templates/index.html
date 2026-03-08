@@ -324,6 +324,22 @@
                 </div>
             </div>
 
+            <!-- Artists -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Artists</span>
+                </div>
+                <div class="settings-field" id="artist-management">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
             <!-- File Management -->
             <div class="settings-section">
                 <div class="settings-section-header">
@@ -436,6 +452,7 @@
     <div id="column-context-menu" class="context-menu" style="display: none;">
         <div class="context-menu-title">Columns</div>
         <div class="context-menu-toggles">
+            <button class="column-toggle" data-column="artist">Artist</button>
             <button class="column-toggle active" data-column="image">Image</button>
             <button class="column-toggle active" data-column="video">Video</button>
             <button class="column-toggle" data-column="lipsync">Lip Sync</button>

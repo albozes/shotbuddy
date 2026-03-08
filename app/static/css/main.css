@@ -1684,7 +1684,7 @@
 
         .skeleton-row {
             display: grid;
-            grid-template-columns: var(--grid-columns, 110px 160px 160px 1fr 50px);
+            grid-template-columns: var(--grid-columns, 110px 160px 160px 0px 1fr 50px);
             align-items: start;
             padding-bottom: 10px;
             min-height: 100px;
@@ -1845,6 +1845,226 @@
         .notes-expand-btn:hover {
             color: var(--color-accent);
             border-color: var(--color-accent);
+        }
+
+        /* ===== ARTIST STRIP ===== */
+        .artist-strip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 24px;
+            border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            z-index: 2;
+            letter-spacing: 0.5px;
+            transition: width var(--transition-fast), opacity var(--transition-fast);
+            user-select: none;
+        }
+
+        .artist-visible .artist-strip {
+            display: flex;
+        }
+
+        .artist-visible {
+            padding-left: 24px;
+        }
+
+        .artist-strip:hover {
+            width: 28px;
+        }
+
+        .artist-strip-empty {
+            background: var(--color-bg-card);
+            color: var(--color-text-tertiary);
+            font-size: 14px;
+            font-weight: 400;
+            border-right: 1px solid var(--color-border-subtle);
+        }
+
+        .artist-strip-empty:hover {
+            color: var(--color-accent);
+        }
+
+        .artist-dropdown {
+            position: fixed;
+            z-index: 10002;
+            width: 200px;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            padding: var(--space-1);
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+
+        .artist-dropdown.show {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .artist-dropdown-search {
+            width: 100%;
+            padding: 6px 8px;
+            background: var(--color-bg-input);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            color: var(--color-text-primary);
+            font-size: 13px;
+            margin-bottom: 4px;
+            box-sizing: border-box;
+        }
+
+        .artist-dropdown-search:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+
+        .artist-dropdown-list {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .artist-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            transition: background var(--transition-fast);
+        }
+
+        .artist-dropdown-item:hover {
+            background: var(--color-bg-hover);
+            color: var(--color-text-primary);
+        }
+
+        .artist-dropdown-item.active {
+            color: var(--color-accent);
+        }
+
+        .artist-dropdown-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .artist-dropdown-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .artist-dropdown-create {
+            color: var(--color-accent);
+            font-size: 13px;
+        }
+
+        .artist-dropdown-plus,
+        .artist-dropdown-x {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .artist-dropdown-unassign {
+            color: var(--color-text-tertiary);
+            font-size: 12px;
+        }
+
+        .artist-dropdown-empty {
+            padding: 8px;
+            text-align: center;
+            color: var(--color-text-tertiary);
+            font-size: 12px;
+        }
+
+        /* Artist Settings Management */
+        .artist-settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .artist-settings-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .artist-swatch-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .artist-swatch-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+        }
+
+        .artist-name-input {
+            flex: 1;
+            padding: 4px 8px;
+            background: var(--color-bg-input);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            color: var(--color-text-primary);
+            font-size: 13px;
+        }
+
+        .artist-name-input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+
+        .artist-delete-btn {
+            color: var(--color-text-tertiary);
+        }
+
+        .artist-delete-btn:hover {
+            color: var(--color-error);
+        }
+
+        .artist-color-picker {
+            position: fixed;
+            z-index: 10003;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            padding: 8px;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .artist-color-option {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform var(--transition-fast);
+        }
+
+        .artist-color-option:hover {
+            transform: scale(1.2);
         }
 
         /* ===== CONTEXT MENU ===== */
