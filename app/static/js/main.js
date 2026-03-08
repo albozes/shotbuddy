@@ -704,6 +704,10 @@
 
         // ===== ARTIST STRIP =====
 
+        function escapeAttr(str) {
+            return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
         function isArtistVisible() {
             const cols = getVisibleColumnIds();
             return cols.includes('artist');
@@ -739,9 +743,9 @@
             const artist = getArtistForShot(shot.name);
             const bgStyle = artist ? `background: ${artist.color};` : '';
             const initial = artist ? getArtistInitials(artist.name).charAt(0) : '+';
-            const title = artist ? artist.name : 'Assign artist';
+            const title = artist ? escapeAttr(artist.name) : 'Assign artist';
             const cls = artist ? 'artist-strip' : 'artist-strip artist-strip-empty';
-            return `<div class="${cls}" style="${bgStyle}" title="${title}" onclick="openArtistDropdown(event, '${shot.name}')">${initial}</div>`;
+            return `<div class="${cls}" style="${bgStyle}" title="${title}" onclick="openArtistDropdown(event, '${escapeAttr(shot.name)}')">${initial}</div>`;
         }
 
         let activeArtistDropdown = null;
@@ -801,14 +805,14 @@
                     const active = a.id === currentArtistId ? ' active' : '';
                     html += `<div class="artist-dropdown-item${active}" data-id="${a.id}">
                         <span class="artist-dropdown-dot" style="background: ${a.color};"></span>
-                        <span class="artist-dropdown-name">${a.name}</span>
+                        <span class="artist-dropdown-name">${escapeAttr(a.name)}</span>
                     </div>`;
                 });
 
                 // Show "Create" option if query doesn't match any existing artist
                 if (query && !artists.some(a => a.name.toLowerCase() === query)) {
                     html += `<div class="artist-dropdown-item artist-dropdown-create" data-action="create">
-                        <span class="artist-dropdown-plus">+</span> Create "${filter}"
+                        <span class="artist-dropdown-plus">+</span> Create "${escapeAttr(filter)}"
                     </div>`;
                 }
 
@@ -903,9 +907,8 @@
                 html += `
                     <div class="artist-settings-row" data-id="${a.id}">
                         <button class="artist-swatch-btn" style="background: ${a.color};" onclick="openArtistColorPicker(event, '${a.id}')" title="Change color"></button>
-                        <input type="text" class="artist-name-input" value="${a.name}" data-id="${a.id}"
-                               onchange="renameArtistInSettings('${a.id}', this.value)"
-                               onblur="renameArtistInSettings('${a.id}', this.value)">
+                        <input type="text" class="artist-name-input" value="${escapeAttr(a.name)}" data-id="${a.id}"
+                               onchange="renameArtistInSettings('${a.id}', this.value)">
                         <button class="btn btn-icon btn-ghost artist-delete-btn" onclick="deleteArtistInSettings('${a.id}')" title="Delete artist">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
@@ -935,7 +938,7 @@
             if (artist && artist.name !== newName) {
                 artist.name = newName;
                 saveArtistSettings();
-                renderShots();
+                refreshAllArtistStrips();
             }
         }
 
@@ -949,14 +952,26 @@
             currentSettings.shot_artists = shotArtists;
             saveArtistSettings();
             renderArtistManagement();
-            renderShots();
+            refreshAllArtistStrips();
         }
 
         let activeColorPicker = null;
+        let activeColorPickerCleanup = null;
+
+        function closeColorPicker() {
+            if (activeColorPicker) {
+                activeColorPicker.remove();
+                activeColorPicker = null;
+            }
+            if (activeColorPickerCleanup) {
+                activeColorPickerCleanup();
+                activeColorPickerCleanup = null;
+            }
+        }
 
         function openArtistColorPicker(event, artistId) {
             event.stopPropagation();
-            if (activeColorPicker) { activeColorPicker.remove(); activeColorPicker = null; }
+            closeColorPicker();
 
             const btn = event.currentTarget;
             const rect = btn.getBoundingClientRect();
@@ -974,10 +989,9 @@
                         artist.color = color;
                         saveArtistSettings();
                         renderArtistManagement();
-                        renderShots();
+                        refreshAllArtistStrips();
                     }
-                    picker.remove();
-                    activeColorPicker = null;
+                    closeColorPicker();
                 };
                 picker.appendChild(dot);
             });
@@ -995,13 +1009,13 @@
             picker.style.top = top + 'px';
 
             setTimeout(() => {
-                document.addEventListener('click', function handler(e) {
+                function handler(e) {
                     if (!picker.contains(e.target)) {
-                        picker.remove();
-                        activeColorPicker = null;
-                        document.removeEventListener('click', handler);
+                        closeColorPicker();
                     }
-                });
+                }
+                document.addEventListener('click', handler);
+                activeColorPickerCleanup = () => document.removeEventListener('click', handler);
             }, 0);
         }
 
@@ -1016,6 +1030,10 @@
                 temp.innerHTML = createArtistStrip(shot);
                 oldStrip.replaceWith(temp.firstElementChild);
             }
+        }
+
+        function refreshAllArtistStrips() {
+            shots.forEach(s => refreshArtistStrip(s.name));
         }
 
         function createDropZone(shot, type) {

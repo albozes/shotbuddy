@@ -175,8 +175,13 @@ class ProjectManager:
         project_path = Path(project['path'])
         return project_path / '.shotbuddy_project.json'
 
-    def load_shared_project_data(self):
-        """Load shared project data (artists, shot_artists) from .shotbuddy_project.json."""
+    def load_shared_project_data(self, _project_settings=None):
+        """Load shared project data (artists, shot_artists) from .shotbuddy_project.json.
+
+        Args:
+            _project_settings: Already-loaded project settings dict to avoid re-reading
+                the file during migration check. If None, loads from disk when needed.
+        """
         shared_file = self.get_shared_project_file()
         if shared_file and shared_file.exists():
             try:
@@ -186,7 +191,7 @@ class ProjectManager:
                 logger.warning("Failed to load shared project data: %s", e)
 
         # Migration: check if artists/shot_artists exist in old settings file
-        old_settings = self.load_project_settings()
+        old_settings = _project_settings if _project_settings is not None else self.load_project_settings()
         migrated = {}
         for key in ('artists', 'shot_artists'):
             if key in old_settings:
@@ -218,7 +223,7 @@ class ProjectManager:
             'color_mode': 'dark'
         })
         project_settings = self.load_project_settings()
-        shared_data = self.load_shared_project_data()
+        shared_data = self.load_shared_project_data(_project_settings=project_settings)
 
         # Merge global, local project, and shared project settings
         return {
@@ -259,7 +264,7 @@ class ProjectManager:
             self.save_project_settings(project_settings)
 
         # Update shared project data (artists, shot_artists)
-        shared_data = self.load_shared_project_data()
+        shared_data = self.load_shared_project_data(_project_settings=project_settings)
         for key in shared_project_keys:
             if key in settings_dict:
                 shared_data[key] = settings_dict[key]
@@ -267,5 +272,16 @@ class ProjectManager:
         if any(key in settings_dict for key in shared_project_keys):
             self.save_shared_project_data(shared_data)
 
-        return self.get_settings()
+        # Build response from already-loaded data to avoid re-reading files
+        global_settings = self.projects.get('settings', {})
+        return {
+            'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
+            'color_theme': global_settings.get('color_theme', 'default'),
+            'color_mode': global_settings.get('color_mode', 'dark'),
+            'file_naming_pattern': global_settings.get('file_naming_pattern', '{shot}'),
+            'collapsed_shots': project_settings.get('collapsed_shots', []),
+            'visible_columns': project_settings.get('visible_columns', ['image', 'video']),
+            'artists': shared_data.get('artists', []),
+            'shot_artists': shared_data.get('shot_artists', {})
+        }
 
