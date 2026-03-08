@@ -1772,6 +1772,36 @@
             font-style: italic;
         }
 
+        .notes-cell {
+            position: relative;
+        }
+
+        .notes-expand-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            color: var(--color-text-tertiary);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+        }
+
+        .notes-cell:hover .notes-expand-btn {
+            opacity: 1;
+        }
+
+        .notes-expand-btn:hover {
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+        }
+
         /* ===== CONTEXT MENU ===== */
         .context-menu {
             position: fixed;

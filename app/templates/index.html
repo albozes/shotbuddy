@@ -224,6 +224,21 @@
         </div>
     </div>
 
+    <!-- Notes Expand Modal -->
+    <div id="notes-modal" class="modal" data-shot="">
+        <div class="modal-content" style="position: relative; width: 800px;">
+            <button class="close-modal" onclick="closeNotesModal()">&times;</button>
+            <h3 id="notes-modal-title">Notes</h3>
+            <textarea id="notes-modal-text" class="prompt-textarea" style="height: 400px;"></textarea>
+            <div class="prompt-footer">
+                <div class="left-buttons"></div>
+                <div class="modal-buttons">
+                    <button class="dark-button" onclick="saveNotesModal()">Save &amp; Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Shot Limit Warning Modal -->
     <div id="shot-limit-modal" class="modal">
         <div class="modal-content">

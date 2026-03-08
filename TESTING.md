@@ -90,6 +90,13 @@ How to verify ShotBuddy features after updates. Run through each section to conf
 - **Reset tips** — Open Settings, click "Reset Quick-Start Tips". Tips restart from the beginning.
 - **Full flow** — Walk through the entire user journey (no project → open project → create shot → upload asset). Each tip should appear at the right moment targeting the correct UI element.
 
+## Notes
+
+- **Inline editing** — Type in the notes textarea on any shot. Notes save automatically on blur/change.
+- **Expand modal** — Hover over the notes textarea, click the expand icon in the top-right corner. A full-screen modal opens with the current notes content.
+- **Save from modal** — Edit notes in the modal, click "Save & Close". The inline textarea updates and notes are saved.
+- **Cancel modal** — Close the modal with the × button. Notes are not saved (only "Save & Close" saves).
+
 ## UI & Interactions
 
 - **Notifications** — Successful actions show green toast, errors show red. They disappear after a few seconds.

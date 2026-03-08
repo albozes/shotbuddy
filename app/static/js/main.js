@@ -614,6 +614,9 @@
                               placeholder="Add notes..."
                               onchange="saveNotes('${shot.name}', this.value)"
                               onblur="saveNotes('${shot.name}', this.value)">${shot.notes || ''}</textarea>
+                    <button class="notes-expand-btn" onclick="openNotesModal('${shot.name}')" title="Expand notes">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25-5.25v4.5m0-4.5h-4.5m4.5 0L15 9m-11.25 11.25v-4.5m0 4.5h4.5m-4.5 0L9 15m11.25 5.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                    </button>
                 </div>
                 <div class="collapse-cell">
                     <button class="collapse-button"
@@ -1178,6 +1181,48 @@
                 showNotification('Error saving notes', 'error');
             }
         }
+
+let _notesModalTimeout = null;
+
+function openNotesModal(shotName) {
+    if (_notesModalTimeout) {
+        clearTimeout(_notesModalTimeout);
+        _notesModalTimeout = null;
+    }
+    const modal = document.getElementById('notes-modal');
+    modal.dataset.shot = shotName;
+    document.getElementById('notes-modal-title').textContent = `${shotName} — Notes`;
+    const shot = shots.find(s => s.name === shotName);
+    const textarea = document.getElementById('notes-modal-text');
+    textarea.value = shot ? (shot.notes || '') : '';
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+        textarea.focus();
+    });
+}
+
+function closeNotesModal() {
+    const modal = document.getElementById('notes-modal');
+    modal.classList.remove('show');
+    _notesModalTimeout = setTimeout(() => {
+        modal.style.display = 'none';
+        _notesModalTimeout = null;
+    }, 200);
+}
+
+function saveNotesModal() {
+    const modal = document.getElementById('notes-modal');
+    const shotName = modal.dataset.shot;
+    const notes = document.getElementById('notes-modal-text').value;
+    const row = document.querySelector(`.shot-row[data-shot="${CSS.escape(shotName)}"]`);
+    if (row) {
+        const inlineTextarea = row.querySelector('.notes-input');
+        if (inlineTextarea) inlineTextarea.value = notes;
+    }
+    saveNotes(shotName, notes);
+    closeNotesModal();
+}
 
 function editShotName(element, currentName) {
     // Prevent editing if already in edit mode
