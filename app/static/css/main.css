@@ -624,7 +624,7 @@
         .grid-header {
             background: var(--color-bg-elevated);
             display: grid;
-            grid-template-columns: var(--grid-columns, 110px 160px 160px 1fr 50px);
+            grid-template-columns: var(--grid-columns, 110px 160px 160px 0px 1fr 50px);
             align-items: start;
             border-radius: var(--radius-lg);
             margin-bottom: 4px;
@@ -636,7 +636,7 @@
             top: 49px;
             z-index: 20;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
-            transition: margin 0.3s ease, border-radius 0.3s ease, padding 0.3s ease;
+            transition: margin 0.3s ease, border-radius 0.3s ease, padding 0.3s ease, grid-template-columns 0.3s ease;
         }
 
         .grid-header.stuck {
@@ -657,6 +657,8 @@
             letter-spacing: 0.05em;
             text-transform: uppercase;
             white-space: nowrap;
+            overflow: hidden;
+            transition: opacity 0.15s ease;
         }
 
         /* Align header cells using data-column attributes (not nth-child) */
@@ -674,11 +676,45 @@
             padding-left: 16px;
         }
 
+        .column-cell,
+        .column-hidden {
+            overflow: hidden;
+            min-width: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .column-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .filter-columns-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--color-text-tertiary);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color var(--transition-fast), background var(--transition-fast);
+        }
+
+        .filter-columns-btn:hover {
+            color: var(--color-text-primary);
+            background: var(--color-bg-hover);
+        }
+
         .shot-row {
             position: relative;
             z-index: 1;
             display: grid;
-            grid-template-columns: var(--grid-columns, 110px 160px 160px 1fr 50px);
+            grid-template-columns: var(--grid-columns, 110px 160px 160px 0px 1fr 50px);
             align-items: start;
             background: var(--color-bg-elevated);
             border-radius: var(--radius-lg);
@@ -686,7 +722,7 @@
             padding-bottom: 10px;
             cursor: default;
             box-shadow: var(--shadow-sm);
-            transition: background 0.15s ease;
+            transition: background 0.15s ease, grid-template-columns 0.3s ease;
         }
 
         .shot-row:hover {
@@ -699,6 +735,15 @@
         .shot-row .notes-cell {
             opacity: 1;
             transition: opacity 0.2s ease 0.3s;
+        }
+
+        .shot-row .column-hidden,
+        .shot-row .column-fade-in {
+            transition: opacity 0.15s ease;
+        }
+
+        .shot-row .column-hidden {
+            opacity: 0;
         }
 
         .shot-row.collapsed,

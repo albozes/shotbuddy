@@ -11,7 +11,7 @@
             { id: 'image',     label: 'Image',     width: '160px', fixed: false, defaultVisible: true },
             { id: 'video',     label: 'Video',     width: '160px', fixed: false, defaultVisible: true },
             { id: 'lipsync',   label: 'Lip Sync',  width: '160px', fixed: false, defaultVisible: false },
-            { id: 'notes',     label: 'Notes',     width: '1fr',   fixed: true },
+            { id: 'notes',     label: 'Notes',     width: '1fr',   fixed: false, defaultVisible: true },
             { id: 'collapse',  label: '',           width: '50px',  fixed: true },
         ];
 
@@ -20,13 +20,13 @@
                 || COLUMN_CONFIG.filter(c => c.fixed || c.defaultVisible).map(c => c.id);
         }
 
-        function getVisibleColumns() {
-            const visible = getVisibleColumnIds();
-            return COLUMN_CONFIG.filter(c => c.fixed || visible.includes(c.id));
-        }
-
         function applyGridTemplate() {
-            const template = getVisibleColumns().map(c => c.width).join(' ');
+            const visibleIds = getVisibleColumnIds();
+            const template = COLUMN_CONFIG.map(c => {
+                const isVisible = c.fixed || visibleIds.includes(c.id);
+                if (!isVisible && !c.width.includes('fr')) return '0px';
+                return c.width;
+            }).join(' ');
             document.documentElement.style.setProperty('--grid-columns', template);
         }
 
@@ -38,14 +38,27 @@
             const header = document.getElementById('main-grid-header');
             if (!header) return;
             header.innerHTML = '';
-            for (const col of getVisibleColumns()) {
+            const visibleIds = getVisibleColumnIds();
+            for (const col of COLUMN_CONFIG) {
                 const cell = document.createElement('div');
                 cell.className = 'grid-header-cell';
                 cell.dataset.column = col.id;
                 cell.textContent = col.label;
                 if (col.id === 'collapse') cell.classList.add('collapse-header');
+                if (!col.fixed && !visibleIds.includes(col.id)) cell.classList.add('column-hidden');
                 header.appendChild(cell);
             }
+
+            const filterBtn = document.createElement('button');
+            filterBtn.className = 'filter-columns-btn';
+            filterBtn.title = 'Toggle columns';
+            filterBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" /></svg>';
+            filterBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const rect = filterBtn.getBoundingClientRect();
+                showColumnContextMenu(rect.right, rect.bottom + 4, 'right');
+            });
+            header.appendChild(filterBtn);
         }
 
         // Column context menu functions
@@ -77,25 +90,31 @@
             });
         }
 
-        function showColumnContextMenu(x, y) {
+        function showColumnContextMenu(x, y, align) {
             const menu = document.getElementById('column-context-menu');
 
             menu.querySelectorAll('input[data-column]').forEach(cb => {
                 cb.checked = isColumnVisible(cb.dataset.column);
             });
 
-            menu.style.left = x + 'px';
-            menu.style.top = y + 'px';
             menu.style.display = 'block';
 
             requestAnimationFrame(() => {
                 const rect = menu.getBoundingClientRect();
-                if (rect.right > window.innerWidth) {
-                    menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+                let left = align === 'right' ? x - rect.width : x;
+                let top = y;
+
+                if (left + rect.width > window.innerWidth) {
+                    left = window.innerWidth - rect.width - 8;
                 }
-                if (rect.bottom > window.innerHeight) {
-                    menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+                if (left < 8) left = 8;
+                if (top + rect.height > window.innerHeight) {
+                    top = window.innerHeight - rect.height - 8;
                 }
+                if (top < 8) top = 8;
+
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
                 menu.classList.add('show');
             });
         }
@@ -106,10 +125,20 @@
             setTimeout(() => { menu.style.display = 'none'; }, 150);
         }
 
+        function toggleCellClasses(columnId, hidden) {
+            document.querySelectorAll(`.grid-header-cell[data-column="${columnId}"]`).forEach(el => {
+                el.classList.toggle('column-hidden', hidden);
+            });
+            document.querySelectorAll('.shot-row').forEach(row => {
+                const colIndex = COLUMN_CONFIG.findIndex(c => c.id === columnId);
+                const cell = row.children[colIndex];
+                if (cell) cell.classList.toggle('column-hidden', hidden);
+            });
+        }
+
         async function toggleColumnVisibility(columnId, visible) {
-            const toggleable = COLUMN_CONFIG.filter(c => !c.fixed);
             let visibleColumns = currentSettings.visible_columns
-                || toggleable.filter(c => c.defaultVisible).map(c => c.id);
+                || COLUMN_CONFIG.filter(c => !c.fixed && c.defaultVisible).map(c => c.id);
 
             visibleColumns = [...visibleColumns];
 
@@ -121,8 +150,30 @@
 
             currentSettings.visible_columns = visibleColumns;
 
-            applyGridTemplate();
-            renderShots();
+            if (!visible) {
+                // Hiding: fade out content first, then resize column
+                toggleCellClasses(columnId, true);
+                setTimeout(() => applyGridTemplate(), 150);
+            } else {
+                // Showing: resize column first, then fade in content together
+                applyGridTemplate();
+                const colIndex = COLUMN_CONFIG.findIndex(c => c.id === columnId);
+                // Add fade-in class to override the collapse-animation delay on row cells
+                document.querySelectorAll('.shot-row').forEach(row => {
+                    const cell = row.children[colIndex];
+                    if (cell) cell.classList.add('column-fade-in');
+                });
+                setTimeout(() => {
+                    toggleCellClasses(columnId, false);
+                    // Clean up fade-in class after transition completes
+                    setTimeout(() => {
+                        document.querySelectorAll('.shot-row').forEach(row => {
+                            const cell = row.children[colIndex];
+                            if (cell) cell.classList.remove('column-fade-in');
+                        });
+                    }, 200);
+                }, 300);
+            }
 
             try {
                 await fetch('/api/settings/', {
@@ -606,10 +657,10 @@
 
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
-                ${isColumnVisible('image') ? createDropZone(shot, 'image') : ''}
-                ${isColumnVisible('video') ? createDropZone(shot, 'video') : ''}
-                ${isColumnVisible('lipsync') ? createLipsyncZone(shot) : ''}
-                <div class="notes-cell">
+                <div class="column-cell${isColumnVisible('image') ? '' : ' column-hidden'}">${createDropZone(shot, 'image')}</div>
+                <div class="column-cell${isColumnVisible('video') ? '' : ' column-hidden'}">${createDropZone(shot, 'video')}</div>
+                <div class="column-cell${isColumnVisible('lipsync') ? '' : ' column-hidden'}">${createLipsyncZone(shot)}</div>
+                <div class="notes-cell${isColumnVisible('notes') ? '' : ' column-hidden'}">
                     <textarea class="notes-input"
                               placeholder="Add notes..."
                               onchange="saveNotes('${shot.name}', this.value)"
@@ -1547,6 +1598,15 @@ async function loadSettings() {
             // Apply saved theme and mode
             applyTheme(currentSettings.color_theme);
             applyMode(currentSettings.color_mode || 'dark');
+            // Migration: notes was previously a fixed column, add to saved visibility
+            if (currentSettings.visible_columns && !currentSettings.visible_columns.includes('notes')) {
+                currentSettings.visible_columns.push('notes');
+                fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visible_columns: currentSettings.visible_columns })
+                }).catch(() => {});
+            }
             // Apply column visibility
             applyGridTemplate();
             renderGridHeader();
