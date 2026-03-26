@@ -2939,7 +2939,7 @@
         .ref-drop-zone {
             aspect-ratio: 4 / 3;
             border-radius: 8px;
-            overflow: hidden;
+            overflow: visible;
             position: relative;
             transition: all 0.2s;
         }
@@ -2951,6 +2951,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            overflow: hidden;
         }
 
         .ref-drop-zone.empty:hover {

@@ -730,8 +730,7 @@
                 <div class="notes-cell${isColumnVisible('notes') ? '' : ' column-hidden'}" data-column="notes">
                     <textarea class="notes-input"
                               placeholder="Add notes..."
-                              onchange="saveNotes('${shot.name}', this.value)"
-                              onblur="saveNotes('${shot.name}', this.value)">${shot.notes || ''}</textarea>
+                              onchange="saveNotes('${shot.name}', this.value)">${shot.notes || ''}</textarea>
                     <button class="notes-expand-btn" onclick="openNotesModal('${shot.name}')" title="Expand notes">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25-5.25v4.5m0-4.5h-4.5m4.5 0L15 9m-11.25 11.25v-4.5m0 4.5h4.5m-4.5 0L9 15m11.25 5.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
                     </button>
@@ -2547,6 +2546,9 @@ async function loadReferenceImages() {
         if (result.success) {
             referenceImages = result.data;
             renderReferenceImages();
+            if (result.migrated) {
+                showNotification(`Migrated ${result.migrated} reference image(s) to versioned format`, 'warning');
+            }
         } else {
             console.error('Failed to load reference images:', result.error);
         }
@@ -2596,13 +2598,38 @@ function createReferenceImageElement(img) {
     // Escape single quotes in filename for onclick attribute
     const escapedFilename = img.filename.replace(/'/g, "\\'");
 
+    const activeVersion = img.active_version || img.version || 0;
+    const maxVersion = img.version || 0;
+
+    // Build version dropdown if more than one version exists
+    let versionHtml = '';
+    if (maxVersion > 1) {
+        let versionItems = '';
+        for (let v = maxVersion; v >= 1; v--) {
+            const isCurrent = v === activeVersion;
+            versionItems += `<div class="version-dropdown-item${isCurrent ? ' current' : ''}"
+                                 data-filename="${img.filename}"
+                                 data-version="${v}"
+                                 onclick="selectRefVersion(event, '${escapedFilename}', ${v})">v${String(v).padStart(3, '0')}</div>`;
+        }
+        versionHtml = `
+            <div class="version-dropdown-container">
+                <div class="version-badge" onclick="toggleShotVersionDropdown(event, this)">v${String(activeVersion).padStart(3, '0')}</div>
+                <div class="version-dropdown-menu">${versionItems}</div>
+            </div>`;
+    }
+
     item.innerHTML = `
-        <div class="ref-drop-zone">
+        <div class="ref-drop-zone"
+             ondragover="handleRefDragOver(event)"
+             ondragleave="handleRefDragLeave(event)"
+             ondrop="handleRefVersionDrop(event, '${escapedFilename}')">
             <img src="${imageUrl}"
                  class="ref-image-preview"
                  alt="${img.filename}"
                  title="${img.filename}"
                  onclick="revealRefImage('${escapedFilename}')">
+            ${versionHtml}
         </div>
         <div class="ref-image-filename"
              onclick="editRefImageName('${escapedFilename}')"
@@ -2623,31 +2650,44 @@ function handleRefDragLeave(event) {
     event.currentTarget.classList.remove('drag-over');
 }
 
-async function handleRefDrop(event) {
+const ALLOWED_REF_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+
+function getValidDroppedImage(event) {
     event.preventDefault();
     event.currentTarget.classList.remove('drag-over');
 
     const files = event.dataTransfer.files;
     if (files.length === 0) {
         showNotification('No files dropped', 'error');
-        return;
+        return null;
     }
 
     const file = files[0];
     const ext = file.name.toLowerCase().split('.').pop();
 
-    if (!['jpg', 'jpeg', 'png'].includes(ext)) {
-        showNotification('Only JPG and PNG images are allowed', 'error');
-        return;
+    if (!ALLOWED_REF_EXTENSIONS.includes(ext)) {
+        showNotification('Only JPG, PNG and WebP images are allowed', 'error');
+        return null;
     }
 
-    await uploadReferenceImage(file);
+    return file;
+}
+
+async function handleRefDrop(event) {
+    const file = getValidDroppedImage(event);
+    if (file) await uploadReferenceImage(file);
+}
+
+async function handleRefVersionDrop(event, targetFilename) {
+    event.stopPropagation();
+    const file = getValidDroppedImage(event);
+    if (file) await uploadReferenceImage(file, targetFilename);
 }
 
 function openRefImageDialog() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/jpeg,image/jpg,image/png';
+    input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
     input.style.display = 'none';
     input.addEventListener('change', () => {
         if (input.files && input.files[0]) {
@@ -2659,9 +2699,12 @@ function openRefImageDialog() {
     input.click();
 }
 
-async function uploadReferenceImage(file) {
+async function uploadReferenceImage(file, targetFilename = null) {
     const formData = new FormData();
     formData.append('file', file);
+    if (targetFilename) {
+        formData.append('target_name', targetFilename);
+    }
 
     try {
         showNotification('Uploading reference image...');
@@ -2740,6 +2783,43 @@ async function revealRefImage(filename) {
     } catch (error) {
         console.error('Reveal failed:', error);
         showNotification('Failed to reveal file', 'error');
+    }
+}
+
+async function selectRefVersion(event, filename, selectedVersion) {
+    event.stopPropagation();
+
+    const dropdownItem = event.target.closest('.version-dropdown-item');
+    const container = dropdownItem.closest('.version-dropdown-container');
+    const badge = container.querySelector('.version-badge');
+    const menu = container.querySelector('.version-dropdown-menu');
+    const preview = container.closest('.ref-drop-zone').querySelector('.ref-image-preview');
+
+    menu.classList.remove('show');
+    badge.textContent = `v${String(selectedVersion).padStart(3, '0')}`;
+    menu.querySelectorAll('.version-dropdown-item').forEach(item => item.classList.remove('current'));
+    dropdownItem.classList.add('current');
+
+    try {
+        const response = await fetch('/api/reference/restore-version', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, version: selectedVersion })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            const src = result.data?.thumbnail
+                ? `${result.data.thumbnail}?t=${Date.now()}`
+                : `/api/reference/image/${encodeURIComponent(filename)}?t=${Date.now()}`;
+            preview.src = src;
+        } else {
+            showNotification(result.error || 'Failed to restore version', 'error');
+        }
+    } catch (error) {
+        console.error('Error restoring version:', error);
+        showNotification('Failed to restore version', 'error');
     }
 }
 

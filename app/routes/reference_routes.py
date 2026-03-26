@@ -19,7 +19,10 @@ def get_reference_images(project):
     try:
         ref_manager = ReferenceManager(project["path"])
         images = ref_manager.get_reference_images()
-        return jsonify({"success": True, "data": images})
+        result = {"success": True, "data": images}
+        if ref_manager.migrated_count:
+            result["migrated"] = ref_manager.migrated_count
+        return jsonify(result)
     except Exception as e:
         return error_response(str(e), 500)
 
@@ -34,6 +37,14 @@ def upload_reference_image(project):
 
         # Secure the filename
         filename = secure_filename(file.filename)
+
+        # Allow caller to specify a target base name (for versioning onto existing image)
+        target_name = request.form.get('target_name')
+        if target_name:
+            target_name = secure_filename(target_name)
+            # Use the target's stem with the uploaded file's extension
+            ext = Path(filename).suffix
+            filename = Path(target_name).stem + ext
 
         ref_manager = ReferenceManager(project["path"])
         result = ref_manager.save_reference_image(file, filename)
@@ -91,16 +102,22 @@ def delete_reference_image(project):
 @reference_bp.route("/image/<path:filename>")
 @require_project
 def serve_reference_image(project, filename):
-    """Serve a reference image."""
+    """Serve a reference image from latest/ or a specific WIP version."""
     try:
-        project_path = Path(project["path"])
-        image_path = project_path / "ref-images" / filename
+        ref_manager = ReferenceManager(project["path"])
 
-        # Security check: ensure the resolved path is within ref-images
-        ref_images_dir = (project_path / "ref-images").resolve()
-        image_path = image_path.resolve()
+        version = request.args.get('version', type=int)
+        if version:
+            base_stem = Path(filename).stem
+            wip_file = ref_manager.find_wip_version_file(base_stem, version)
+            if wip_file and wip_file.is_file():
+                return send_file(str(wip_file))
+            return error_response("Version not found", 404)
 
-        if not str(image_path).startswith(str(ref_images_dir)):
+        image_path = (ref_manager.ref_latest_dir / filename).resolve()
+        try:
+            image_path.relative_to(ref_manager.ref_latest_dir.resolve())
+        except ValueError:
             return error_response("Invalid path")
 
         if image_path.is_file():
@@ -138,14 +155,12 @@ def reveal_reference_image(project):
         if not filename:
             return error_response("Filename required")
 
-        project_path = Path(project["path"])
-        file_path = project_path / "ref-images" / filename
+        ref_manager = ReferenceManager(project["path"])
+        file_path = (ref_manager.ref_latest_dir / filename).resolve()
 
-        # Security check: ensure the resolved path is within ref-images
-        ref_images_dir = (project_path / "ref-images").resolve()
-        file_path = file_path.resolve()
-
-        if not str(file_path).startswith(str(ref_images_dir)):
+        try:
+            file_path.relative_to(ref_manager.ref_latest_dir.resolve())
+        except ValueError:
             return error_response("Invalid path")
 
         if not file_path.exists():
@@ -153,5 +168,26 @@ def reveal_reference_image(project):
 
         reveal_in_file_browser(file_path)
         return jsonify({"success": True})
+    except Exception as e:
+        return error_response(str(e), 500)
+
+@reference_bp.route("/restore-version", methods=["POST"])
+@require_project
+def restore_reference_version(project):
+    """Restore a specific version of a reference image."""
+    try:
+        data = request.get_json()
+        filename = data.get("filename")
+        version = data.get("version")
+
+        if not filename or version is None:
+            return error_response("Filename and version required")
+
+        ref_manager = ReferenceManager(project["path"])
+        result = ref_manager.restore_reference_version(filename, int(version))
+
+        return jsonify({"success": True, "data": result})
+    except ValueError as e:
+        return error_response(str(e))
     except Exception as e:
         return error_response(str(e), 500)

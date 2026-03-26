@@ -49,9 +49,12 @@ How to verify ShotBuddy features after updates. Run through each section to conf
 ## Reference Images
 
 - **Upload** — Drag an image onto the "+ Add Image" zone in the right sidebar, or click to select. The image appears in the grid.
-- **Rename** — Click the filename, enter a new name. File and thumbnail rename.
-- **Delete** — Delete a reference image. It is removed from the grid and the filesystem.
+- **Version by drop** — Drag a new image onto an existing reference image tile. A version badge appears showing the new version. The old version is preserved.
+- **Switch versions** — Click the version badge on a reference image to open the dropdown. Select a previous version to restore it.
+- **Rename** — Click the filename, enter a new name. File, all WIP versions, and thumbnail rename.
+- **Delete** — Delete a reference image. All versions are removed from the grid and the filesystem.
 - **Reveal** — Click a reference image to reveal it in the file browser.
+- **Migration** — Opening an existing project auto-migrates flat reference images into the versioned `latest/` + `wip/` structure as v001.
 
 ## Thumbnails
 
@@ -124,6 +127,8 @@ How to verify ShotBuddy features after updates. Run through each section to conf
 - [ ] Rename the third shot
 - [ ] Delete the third shot (empty)
 - [ ] Add a reference image
+- [ ] Drop a new image onto the reference image tile (version badge shows v002)
+- [ ] Switch to v001 via the version dropdown
 - [ ] Open the prompt modal for the first shot's image, save a prompt
 - [ ] Change color theme in Settings
 - [ ] Collapse and expand a shot row
