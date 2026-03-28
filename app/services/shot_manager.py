@@ -5,7 +5,9 @@ import re
 
 from ..utils import create_image_thumbnail, create_video_thumbnail, ProjectPaths
 from ..config.constants import (
+    ALLOWED_AUDIO_EXTENSIONS,
     ALLOWED_IMAGE_EXTENSIONS,
+    ALLOWED_LIPSYNC_EXTENSIONS,
     ALLOWED_VIDEO_EXTENSIONS,
     THUMBNAIL_CACHE_DIR,
     AssetType,
@@ -94,7 +96,7 @@ class ShotManager:
                 f.rename(directory / new_name_file)
 
     def _rename_lipsync_files(self, lipsync_dir, old_name, new_name):
-        """Rename all lipsync-related files (driver, target, result)."""
+        """Rename all lipsync-related files (driver, target, result, custom)."""
         if not lipsync_dir.exists():
             return
 
@@ -120,6 +122,14 @@ class ShotManager:
                 new_name_file = f.name.replace(old_name, new_name, 1)
                 logger.info(f"  Renaming prompt {f.name} -> {new_name_file}")
                 f.rename(lipsync_dir / new_name_file)
+
+        # Rename custom-labeled lipsync files
+        for f in lipsync_dir.iterdir():
+            if f.is_file() and f.name.startswith(f"{old_name}_"):
+                new_name_file = f.name.replace(old_name, new_name, 1)
+                if new_name_file != f.name:
+                    logger.info(f"  Renaming custom {f.name} -> {new_name_file}")
+                    f.rename(lipsync_dir / new_name_file)
 
     def _rename_latest_files(self, old_name, new_name):
         """Rename files in the latest_images and latest_videos directories."""
@@ -399,14 +409,14 @@ class ShotManager:
         }
 
     def _get_lipsync_info(self, shot_name, shot_dir, generate=True):
-        """Get info for all lipsync assets (driver, target, result)."""
+        """Get info for all lipsync assets (driver, target, result, custom)."""
         lipsync_dir = shot_dir / 'lipsync'
         lipsync = {}
 
         for part in [AssetType.DRIVER, AssetType.TARGET, AssetType.RESULT]:
             file_path, ver, active_ver = self._get_latest_asset(
                 lipsync_dir, lipsync_dir,
-                f'{shot_name}_{part}', ALLOWED_VIDEO_EXTENSIONS
+                f'{shot_name}_{part}', ALLOWED_LIPSYNC_EXTENSIONS
             )
             file_path = self._normalize_path(file_path)
 
@@ -416,7 +426,11 @@ class ShotManager:
 
             thumbnail = None
             if file_path:
-                thumbnail = self.get_video_thumbnail_path(file_path, f"{shot_name}_{part}", generate=generate)
+                ext = Path(file_path).suffix.lower()
+                if ext in ALLOWED_VIDEO_EXTENSIONS:
+                    thumbnail = self.get_video_thumbnail_path(file_path, f"{shot_name}_{part}", generate=generate)
+                elif ext in ALLOWED_IMAGE_EXTENSIONS:
+                    thumbnail = self.get_thumbnail_path(file_path, f"{shot_name}_{part}", generate=generate)
 
             lipsync[part] = {
                 'file': file_path,
@@ -425,6 +439,49 @@ class ShotManager:
                 'thumbnail': thumbnail,
                 'prompt': prompt_text,
             }
+
+        # Scan for custom-labeled lipsync files
+        custom_files = []
+        if lipsync_dir.exists():
+            standard_markers = tuple(f'_{p}_v' for p in [AssetType.DRIVER, AssetType.TARGET, AssetType.RESULT])
+            for f in lipsync_dir.iterdir():
+                if not f.is_file() or f.suffix.lower() not in ALLOWED_LIPSYNC_EXTENSIONS:
+                    continue
+                if any(marker in f.name for marker in standard_markers):
+                    continue
+                if '_prompt.txt' in f.name:
+                    continue
+                custom_files.append(self._normalize_path(str(f)))
+        lipsync['custom_files'] = custom_files
+
+        # Best thumbnail: priority Result > Target > Driver > image file > None
+        # Also flag if all assets are audio-only
+        best_thumbnail = None
+        has_audio_only = False
+        for part in [AssetType.RESULT, AssetType.TARGET, AssetType.DRIVER]:
+            if lipsync[part]['thumbnail']:
+                best_thumbnail = lipsync[part]['thumbnail']
+                break
+            elif lipsync[part]['file']:
+                ext = Path(lipsync[part]['file']).suffix.lower()
+                if ext in ALLOWED_AUDIO_EXTENSIONS:
+                    has_audio_only = True
+
+        # If no standard thumbnail, check custom files for an image/video
+        if not best_thumbnail and custom_files:
+            for cf in custom_files:
+                ext = Path(cf).suffix.lower()
+                if ext in ALLOWED_VIDEO_EXTENSIONS:
+                    best_thumbnail = self.get_video_thumbnail_path(cf, f"{shot_name}_custom", generate=generate)
+                    break
+                elif ext in ALLOWED_IMAGE_EXTENSIONS:
+                    best_thumbnail = self.get_thumbnail_path(cf, f"{shot_name}_custom", generate=generate)
+                    break
+                elif ext in ALLOWED_AUDIO_EXTENSIONS:
+                    has_audio_only = True
+
+        lipsync['best_thumbnail'] = best_thumbnail
+        lipsync['has_audio_only'] = has_audio_only and not best_thumbnail
 
         return lipsync
 
@@ -480,7 +537,7 @@ class ShotManager:
         if wip_dir.exists():
             wip_files = []
             for ext in extensions:
-                wip_files.extend(wip_dir.glob(f'*_v*{ext}'))
+                wip_files.extend(wip_dir.glob(f'*{shot_name}*_v*{ext}'))
 
             for f in wip_files:
                 m = VERSION_RE.search(f.stem)
@@ -500,6 +557,10 @@ class ShotManager:
                         break
                 except OSError:
                     continue
+
+        # Fall back to the highest versioned file when no "latest" copy exists
+        if not latest_final and wip_version_map:
+            latest_final = str(wip_version_map[version])
 
         return latest_final, version, active_version
 

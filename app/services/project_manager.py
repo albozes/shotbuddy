@@ -167,29 +167,90 @@ class ProjectManager:
             except Exception as e:
                 logger.warning("Failed to save project settings: %s", e)
 
+    def get_shared_project_file(self):
+        """Get path to shared project data file (.shotbuddy_project.json)."""
+        project = self.get_current_project()
+        if not project:
+            return None
+        project_path = Path(project['path'])
+        return project_path / '.shotbuddy_project.json'
+
+    def load_shared_project_data(self, _project_settings=None):
+        """Load shared project data (artists, shot_artists) from .shotbuddy_project.json.
+
+        Args:
+            _project_settings: Already-loaded project settings dict to avoid re-reading
+                the file during migration check. If None, loads from disk when needed.
+        """
+        shared_file = self.get_shared_project_file()
+        if shared_file and shared_file.exists():
+            try:
+                with shared_file.open('r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning("Failed to load shared project data: %s", e)
+
+        # Migration: check if artists/shot_artists exist in old settings file
+        old_settings = _project_settings if _project_settings is not None else self.load_project_settings()
+        migrated = {}
+        for key in ('artists', 'shot_artists'):
+            if key in old_settings:
+                migrated[key] = old_settings.pop(key)
+        if migrated:
+            self.save_shared_project_data(migrated)
+            self.save_project_settings(old_settings)
+            logger.info("Migrated artist data from settings to shared project file")
+            return migrated
+
+        return {}
+
+    def save_shared_project_data(self, shared_data):
+        """Save shared project data to .shotbuddy_project.json."""
+        shared_file = self.get_shared_project_file()
+        if shared_file:
+            try:
+                with shared_file.open('w') as f:
+                    json.dump(shared_data, f, indent=2)
+                logger.info("Saved shared project data to: %s", shared_file)
+            except Exception as e:
+                logger.warning("Failed to save shared project data: %s", e)
+
     def get_settings(self):
-        """Get user settings (global + project-specific)."""
+        """Get user settings (global + project-specific + shared project data)."""
         global_settings = self.projects.get('settings', {
             'thumbnail_click_behavior': 'latest_folder',
             'color_theme': 'default',
             'color_mode': 'dark'
         })
         project_settings = self.load_project_settings()
+        shared_data = self.load_shared_project_data(_project_settings=project_settings)
 
-        # Merge global and project settings
+        # Migration: move file_naming_pattern from global to shared if needed
+        if 'file_naming_pattern' in global_settings and 'file_naming_pattern' not in shared_data:
+            shared_data['file_naming_pattern'] = global_settings.pop('file_naming_pattern')
+            self.save_projects()
+            self.save_shared_project_data(shared_data)
+
+        return self._build_settings_response(global_settings, project_settings, shared_data)
+
+    def _build_settings_response(self, global_settings, project_settings, shared_data):
+        """Build the merged settings response dict."""
         return {
             'thumbnail_click_behavior': global_settings.get('thumbnail_click_behavior', 'latest_folder'),
             'color_theme': global_settings.get('color_theme', 'default'),
             'color_mode': global_settings.get('color_mode', 'dark'),
-            'file_naming_pattern': global_settings.get('file_naming_pattern', '{shot}'),
-            'collapsed_shots': project_settings.get('collapsed_shots', [])
+            'file_naming_pattern': shared_data.get('file_naming_pattern', '{shot}'),
+            'collapsed_shots': project_settings.get('collapsed_shots', []),
+            'visible_columns': project_settings.get('visible_columns', ['image', 'video']),
+            'artists': shared_data.get('artists', []),
+            'shot_artists': shared_data.get('shot_artists', {})
         }
 
     def update_settings(self, settings_dict):
-        """Update user settings and save (handles both global and project-specific settings)."""
-        # Separate global settings from project-specific settings
-        global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode', 'file_naming_pattern']
-        project_settings_keys = ['collapsed_shots']
+        """Update user settings and save (handles global, local project, and shared project settings)."""
+        global_settings_keys = ['thumbnail_click_behavior', 'color_theme', 'color_mode']
+        project_settings_keys = ['collapsed_shots', 'visible_columns']
+        shared_project_keys = ['artists', 'shot_artists', 'file_naming_pattern']
 
         # Update global settings
         if 'settings' not in self.projects:
@@ -199,19 +260,28 @@ class ProjectManager:
             if key in settings_dict:
                 self.projects['settings'][key] = settings_dict[key]
 
-        # Save global settings
         if any(key in settings_dict for key in global_settings_keys):
             self.save_projects()
 
-        # Update project-specific settings
+        # Update local project settings (per-user UI preferences)
         project_settings = self.load_project_settings()
         for key in project_settings_keys:
             if key in settings_dict:
                 project_settings[key] = settings_dict[key]
 
-        # Save project-specific settings
         if any(key in settings_dict for key in project_settings_keys):
             self.save_project_settings(project_settings)
 
-        return self.get_settings()
+        # Update shared project data (artists, shot_artists)
+        shared_data = self.load_shared_project_data(_project_settings=project_settings)
+        for key in shared_project_keys:
+            if key in settings_dict:
+                shared_data[key] = settings_dict[key]
+
+        if any(key in settings_dict for key in shared_project_keys):
+            self.save_shared_project_data(shared_data)
+
+        # Build response from already-loaded data to avoid re-reading files
+        global_settings = self.projects.get('settings', {})
+        return self._build_settings_response(global_settings, project_settings, shared_data)
 

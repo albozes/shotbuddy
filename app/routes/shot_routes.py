@@ -75,11 +75,13 @@ def upload_file(project):
         if file.filename == '':
             return error_response("No file selected")
 
+        custom_label = request.form.get('custom_label')
+
         project_manager = current_app.config['PROJECT_MANAGER']
         settings = project_manager.get_settings()
         naming_pattern = settings.get('file_naming_pattern', '{shot}')
         file_handler = FileHandler(project['path'], naming_pattern=naming_pattern)
-        result = file_handler.save_file(file, shot_name, file_type)
+        result = file_handler.save_file(file, shot_name, file_type, custom_label=custom_label)
 
         return jsonify({"success": True, "data": result})
     except ValueError as e:
@@ -171,6 +173,15 @@ def rename_shot(project):
         shot_manager = get_shot_manager(project["path"])
         shot_info = shot_manager.rename_shot(old_name, new_name)
 
+        # Update shot_artists mapping for the renamed shot
+        project_manager = current_app.config['PROJECT_MANAGER']
+        shared_data = project_manager.load_shared_project_data()
+        shot_artists = shared_data.get('shot_artists', {})
+        if old_name in shot_artists:
+            shot_artists[new_name] = shot_artists.pop(old_name)
+            shared_data['shot_artists'] = shot_artists
+            project_manager.save_shared_project_data(shared_data)
+
         return jsonify({"success": True, "data": shot_info})
     except ValueError as e:
         return error_response(str(e))
@@ -188,6 +199,15 @@ def delete_shot(project):
 
         shot_manager = get_shot_manager(project["path"])
         shot_manager.delete_empty_shot(shot_name)
+
+        # Remove shot_artists mapping for the deleted shot
+        project_manager = current_app.config['PROJECT_MANAGER']
+        shared_data = project_manager.load_shared_project_data()
+        shot_artists = shared_data.get('shot_artists', {})
+        if shot_name in shot_artists:
+            del shot_artists[shot_name]
+            shared_data['shot_artists'] = shot_artists
+            project_manager.save_shared_project_data(shared_data)
 
         return jsonify({"success": True})
     except ValueError as e:
@@ -284,11 +304,19 @@ def reveal_file(project):
 def open_shots_folder(project):
     """Open the current project's shots folder in the file browser."""
     try:
-        shots_path = Path(project["path"]) / "shots"
-        if not shots_path.exists():
-            return error_response("Shots folder missing", 404)
+        data = request.get_json() or {}
+        shot_name = data.get("shot_name")
+        subfolder = data.get("subfolder")
 
-        open_folder_in_browser(shots_path)
+        if shot_name and subfolder:
+            folder_path = Path(project["path"]) / "shots" / "wip" / shot_name / subfolder
+        else:
+            folder_path = Path(project["path"]) / "shots"
+
+        if not folder_path.exists():
+            folder_path.mkdir(parents=True, exist_ok=True)
+
+        open_folder_in_browser(folder_path)
         return jsonify({"success": True})
     except Exception as e:
         return error_response(str(e), 500)

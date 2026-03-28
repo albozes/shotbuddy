@@ -49,6 +49,7 @@
             </div>
         </div>
         <div class="project-drawer" id="project-drawer">
+            <div class="project-drawer-inner">
             <div class="project-drawer-row">
                 <input
                     id="manual-path-input"
@@ -61,6 +62,82 @@
                 <button class="dark-button" id="close-project-btn" onclick="closeProject()" style="display:none;">Close</button>
             </div>
             <div class="recent-projects" id="recent-projects"></div>
+
+            <!-- Project Settings (only visible when a project is open) -->
+            <div class="project-drawer-settings" id="project-drawer-settings" style="display:none;">
+                <div class="project-drawer-divider"></div>
+
+                <!-- Artists -->
+                <div class="drawer-settings-section">
+                    <div class="drawer-settings-header" onclick="toggleDrawerSection(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>Artists</span>
+                        <svg class="drawer-section-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="drawer-settings-body">
+                        <div class="drawer-settings-body-inner">
+                        <div id="drawer-artist-management">
+                            <!-- Populated by JS -->
+                        </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Management -->
+                <div class="drawer-settings-section">
+                    <div class="drawer-settings-header" onclick="toggleDrawerSection(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span>File Naming</span>
+                        <svg class="drawer-section-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="drawer-settings-body">
+                        <div class="drawer-settings-body-inner">
+                        <div class="drawer-field">
+                            <label for="drawer-file-naming-pattern" class="settings-label">File Naming Pattern</label>
+                            <div class="naming-var-buttons">
+                                <button type="button" class="naming-var-btn" onclick="insertNamingVar('{project}', 'drawer-file-naming-pattern')">{project}</button>
+                                <button type="button" class="naming-var-btn" onclick="insertNamingVar('{shot}', 'drawer-file-naming-pattern')">{shot}</button>
+                                <button type="button" class="naming-var-btn" onclick="insertNamingVar('{date}', 'drawer-file-naming-pattern')">{date}</button>
+                            </div>
+                            <input type="text" id="drawer-file-naming-pattern" class="settings-input"
+                                   placeholder="{shot}" oninput="updateNamingPreview('drawer-file-naming-pattern', 'drawer-naming-preview')">
+                            <p id="drawer-naming-preview" class="settings-hint naming-preview">Preview: SH010_v001.jpg</p>
+                            <p class="settings-hint">Version and extension are added automatically. <code>{shot}</code> is required.</p>
+                        </div>
+                        <div class="drawer-field">
+                            <button type="button" class="dark-button" onclick="saveProjectDrawerSettings()" style="margin-top: 4px;">Save</button>
+                        </div>
+                        <div class="drawer-field drawer-danger-zone">
+                            <div class="danger-zone-header">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                                <span>Rename Existing Files</span>
+                            </div>
+                            <p class="settings-hint">Apply the current naming pattern to all existing files. This cannot be undone.</p>
+                            <button type="button" class="danger-button" onclick="confirmApplyNaming('drawer-file-naming-pattern')">Apply to Existing Files</button>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
         </div>
     </div>
 
@@ -130,13 +207,13 @@
                 <div class="loading" id="loading" style="display: none;">Loading shots...</div>
                 <div class="shot-grid" id="shot-grid" tabindex="-1" style="display: none;">
                     <main id="main-content">
-                    <div class="grid-header">
-                        <div class="grid-header-cell">Shot Name</div>
-                        <div class="grid-header-cell">Image</div>
-                        <div class="grid-header-cell">Video</div>
-                        <!-- <div class="grid-header-cell">Lipsync</div> -->
-                        <div class="grid-header-cell">Notes</div>
-                        <div class="grid-header-cell collapse-header"></div>
+                    <div class="grid-header" id="main-grid-header">
+                        <div class="grid-header-cell" data-column="shot_name">Shot Name</div>
+                        <div class="grid-header-cell" data-column="image">Image</div>
+                        <div class="grid-header-cell" data-column="video">Video</div>
+                        <div class="grid-header-cell" data-column="lipsync" style="display:none">Lip Sync</div>
+                        <div class="grid-header-cell" data-column="notes">Notes</div>
+                        <div class="grid-header-cell collapse-header" data-column="collapse"></div>
                     </div>
                     <div id="shot-list"></div>
                     </main>
@@ -224,6 +301,21 @@
         </div>
     </div>
 
+    <!-- Notes Expand Modal -->
+    <div id="notes-modal" class="modal" data-shot="">
+        <div class="modal-content" style="position: relative; width: 800px;">
+            <button class="close-modal" onclick="closeNotesModal()">&times;</button>
+            <h3 id="notes-modal-title">Notes</h3>
+            <textarea id="notes-modal-text" class="prompt-textarea" style="height: 400px;"></textarea>
+            <div class="prompt-footer">
+                <div class="left-buttons"></div>
+                <div class="modal-buttons">
+                    <button class="dark-button" onclick="saveNotesModal()">Save &amp; Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Shot Limit Warning Modal -->
     <div id="shot-limit-modal" class="modal">
         <div class="modal-content">
@@ -251,10 +343,8 @@
             <div class="settings-section">
                 <div class="settings-section-header">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="13.5" cy="6.5" r="2.5"></circle>
-                        <circle cx="19" cy="13.5" r="2.5"></circle>
-                        <circle cx="13.5" cy="20.5" r="2.5"></circle>
-                        <circle cx="5" cy="13.5" r="2.5"></circle>
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                     <span>Appearance</span>
                 </div>
@@ -289,8 +379,15 @@
             <div class="settings-section">
                 <div class="settings-section-header">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg>
                     <span>Behavior</span>
                 </div>
@@ -301,43 +398,6 @@
                         <option value="latest_folder">Latest version across all shots</option>
                         <option value="version_folder">Latest version within the shot's folder</option>
                     </select>
-                </div>
-            </div>
-
-            <!-- File Management -->
-            <div class="settings-section">
-                <div class="settings-section-header">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                    </svg>
-                    <span>File Management</span>
-                </div>
-                <div class="settings-field">
-                    <label for="file-naming-pattern" class="settings-label">File Naming Pattern</label>
-                    <div class="naming-var-buttons">
-                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{project}')">{project}</button>
-                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{shot}')">{shot}</button>
-                        <button type="button" class="naming-var-btn" onclick="insertNamingVar('{date}')">{date}</button>
-                    </div>
-                    <input type="text" id="file-naming-pattern" class="settings-input"
-                           placeholder="{shot}" oninput="updateNamingPreview()">
-                    <p id="naming-preview" class="settings-hint naming-preview">Preview: SH010_v001.jpg</p>
-                    <p class="settings-hint">Version and extension are added automatically. <code>{shot}</code> is required.</p>
-                </div>
-                <div class="settings-field settings-danger-zone">
-                    <div class="danger-zone-header">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                        <span>Rename Existing Files</span>
-                    </div>
-                    <p class="settings-hint">Apply the current naming pattern to all existing files. This cannot be undone.</p>
-                    <button type="button" class="danger-button" onclick="confirmApplyNaming()">Apply to Existing Files</button>
                 </div>
             </div>
 
@@ -365,6 +425,27 @@
                 </div>
             </div>
 
+            <!-- Version -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <line x1="1.05" y1="12" x2="7" y2="12"></line>
+                        <line x1="17.01" y1="12" x2="22.96" y2="12"></line>
+                    </svg>
+                    <span>Version</span>
+                </div>
+                <div class="settings-version-row">
+                    <span id="app-version" class="settings-version-text">Loading...</span>
+                    <button class="settings-version-copy" onclick="copyVersion()" title="Copy version">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
             <div class="modal-buttons">
                 <button class="green-button" onclick="saveSettings()">Save</button>
                 <button class="dark-button" onclick="closeSettingsModal()">Cancel</button>
@@ -387,6 +468,39 @@
             <div class="modal-buttons">
                 <button class="dark-button" style="color: var(--color-error);" onclick="executeApplyNaming()">Rename Files</button>
                 <button class="dark-button" onclick="closeRenameModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Visibility Context Menu -->
+    <div id="column-context-menu" class="context-menu" style="display: none;">
+        <div class="context-menu-title">Columns</div>
+        <div class="context-menu-toggles">
+            <button class="column-toggle" data-column="artist">Artist</button>
+            <button class="column-toggle active" data-column="image">Image</button>
+            <button class="column-toggle active" data-column="video">Video</button>
+            <button class="column-toggle" data-column="lipsync">Lip Sync</button>
+            <button class="column-toggle active" data-column="notes">Notes</button>
+        </div>
+    </div>
+
+    <!-- Custom Lipsync Label Modal -->
+    <div id="lipsync-custom-modal" class="modal">
+        <div class="modal-content" style="max-width: 360px;">
+            <button class="close-modal" onclick="closeLipsyncCustomModal()">&times;</button>
+            <h3 style="margin-bottom: 12px;">Custom Label</h3>
+            <p style="margin-bottom: 12px; color: var(--color-text-secondary); font-size: 13px; line-height: 1.5;">
+                Enter a label for this file. It will be added to the filename
+                (e.g., <code style="color: var(--color-accent);">SH010_<em>your_label</em>_v001.mp4</code>).
+            </p>
+            <input type="text" id="lipsync-custom-label-input"
+                   class="text-input"
+                   placeholder="e.g. charA_driver"
+                   style="width: 100%; margin-bottom: 16px;"
+                   autocomplete="off">
+            <div class="modal-buttons">
+                <button class="dark-button" id="lipsync-custom-confirm-btn" onclick="confirmLipsyncCustomLabel()">Upload</button>
+                <button class="dark-button" onclick="closeLipsyncCustomModal()">Cancel</button>
             </div>
         </div>
     </div>

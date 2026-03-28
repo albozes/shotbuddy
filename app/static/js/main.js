@@ -5,19 +5,257 @@
         const NEW_SHOT_DROP_TEXT = 'Drop an asset here to create a new shot.';
         document.documentElement.style.setProperty('--new-shot-drop-text', `'${NEW_SHOT_DROP_TEXT}'`);
 
+        // Column visibility configuration
+        const COLUMN_CONFIG = [
+            { id: 'shot_name', label: 'Shot Name', width: '110px', fixed: true },
+            { id: 'image',     label: 'Image',     width: '160px', fixed: false, defaultVisible: true },
+            { id: 'video',     label: 'Video',     width: '160px', fixed: false, defaultVisible: true },
+            { id: 'lipsync',   label: 'Lip Sync',  width: '160px', fixed: false, defaultVisible: false },
+            { id: 'notes',     label: 'Notes',     width: '1fr',   fixed: false, defaultVisible: true },
+            { id: 'collapse',  label: '',           width: '50px',  fixed: true },
+        ];
+
+        function getVisibleColumnIds() {
+            return (typeof currentSettings !== 'undefined' && currentSettings.visible_columns)
+                || COLUMN_CONFIG.filter(c => c.fixed || c.defaultVisible).map(c => c.id);
+        }
+
+        function applyGridTemplate() {
+            const visibleIds = getVisibleColumnIds();
+            const template = COLUMN_CONFIG.map(c => {
+                const isVisible = c.fixed || visibleIds.includes(c.id);
+                if (!isVisible && !c.width.includes('fr')) return '0px';
+                return c.width;
+            }).join(' ');
+            document.documentElement.style.setProperty('--grid-columns', template);
+        }
+
+        function isColumnVisible(columnId) {
+            return getVisibleColumnIds().includes(columnId);
+        }
+
+        function renderGridHeader() {
+            const header = document.getElementById('main-grid-header');
+            if (!header) return;
+            header.innerHTML = '';
+            header.classList.toggle('artist-visible', isArtistVisible());
+            const visibleIds = getVisibleColumnIds();
+            for (const col of COLUMN_CONFIG) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-header-cell';
+                cell.dataset.column = col.id;
+                cell.textContent = col.label;
+                if (col.id === 'collapse') cell.classList.add('collapse-header');
+                if (!col.fixed && !visibleIds.includes(col.id)) cell.classList.add('column-hidden');
+                header.appendChild(cell);
+            }
+
+            const filterBtn = document.createElement('button');
+            filterBtn.className = 'filter-columns-btn';
+            filterBtn.title = 'Toggle columns';
+            filterBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" /></svg>';
+            filterBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const menu = document.getElementById('column-context-menu');
+                if (menu.classList.contains('show')) {
+                    hideColumnContextMenu();
+                } else {
+                    const rect = filterBtn.getBoundingClientRect();
+                    showColumnContextMenu(rect.right, rect.bottom + 4, 'right');
+                }
+            });
+            header.appendChild(filterBtn);
+        }
+
+        // Column context menu functions
+
+        function initColumnContextMenu() {
+            const menu = document.getElementById('column-context-menu');
+
+            document.addEventListener('contextmenu', function(e) {
+                const header = e.target.closest('.grid-header');
+                if (!header) return;
+                e.preventDefault();
+                showColumnContextMenu(e.clientX, e.clientY);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#column-context-menu')) {
+                    hideColumnContextMenu();
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') hideColumnContextMenu();
+            });
+
+            menu.addEventListener('click', function(e) {
+                const btn = e.target.closest('.column-toggle[data-column]');
+                if (!btn) return;
+                const isActive = btn.classList.contains('active');
+                btn.classList.toggle('active', !isActive);
+                toggleColumnVisibility(btn.dataset.column, !isActive);
+            });
+        }
+
+        function showColumnContextMenu(x, y, align) {
+            const menu = document.getElementById('column-context-menu');
+
+            menu.querySelectorAll('.column-toggle[data-column]').forEach(btn => {
+                btn.classList.toggle('active', isColumnVisible(btn.dataset.column));
+            });
+
+            menu.style.display = 'block';
+
+            requestAnimationFrame(() => {
+                const rect = menu.getBoundingClientRect();
+                let left = align === 'right' ? x - rect.width : x;
+                let top = y;
+
+                if (left + rect.width > window.innerWidth) {
+                    left = window.innerWidth - rect.width - 8;
+                }
+                if (left < 8) left = 8;
+                if (top + rect.height > window.innerHeight) {
+                    top = window.innerHeight - rect.height - 8;
+                }
+                if (top < 8) top = 8;
+
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+                menu.classList.add('show');
+            });
+        }
+
+        function hideColumnContextMenu() {
+            const menu = document.getElementById('column-context-menu');
+            menu.classList.remove('show');
+            setTimeout(() => { menu.style.display = 'none'; }, 150);
+        }
+
+        function toggleCellClasses(columnId, hidden) {
+            document.querySelectorAll(`.grid-header-cell[data-column="${columnId}"], .shot-row [data-column="${columnId}"]`).forEach(el => {
+                el.classList.toggle('column-hidden', hidden);
+            });
+        }
+
+        async function toggleColumnVisibility(columnId, visible) {
+            let visibleColumns = currentSettings.visible_columns
+                || COLUMN_CONFIG.filter(c => !c.fixed && c.defaultVisible).map(c => c.id);
+
+            visibleColumns = [...visibleColumns];
+
+            if (visible && !visibleColumns.includes(columnId)) {
+                visibleColumns.push(columnId);
+            } else if (!visible) {
+                visibleColumns = visibleColumns.filter(id => id !== columnId);
+            }
+
+            currentSettings.visible_columns = visibleColumns;
+
+            // Artist strip is not a grid column — toggle via class on rows and header
+            if (columnId === 'artist') {
+                document.querySelectorAll('.shot-row').forEach(row => {
+                    row.classList.toggle('artist-visible', visible);
+                });
+                const header = document.getElementById('main-grid-header');
+                if (header) header.classList.toggle('artist-visible', visible);
+            } else {
+                if (!visible) {
+                    // Hiding: fade out content first, then resize column
+                    toggleCellClasses(columnId, true);
+                    setTimeout(() => applyGridTemplate(), 150);
+                } else {
+                    // Showing: resize column first, then fade in content together
+                    applyGridTemplate();
+                    // Add fade-in class to override the collapse-animation delay on row cells
+                    document.querySelectorAll(`.shot-row [data-column="${columnId}"]`).forEach(cell => {
+                        cell.classList.add('column-fade-in');
+                    });
+                    setTimeout(() => {
+                        toggleCellClasses(columnId, false);
+                        // Clean up fade-in class after transition completes
+                        setTimeout(() => {
+                            document.querySelectorAll(`.shot-row [data-column="${columnId}"]`).forEach(cell => {
+                                cell.classList.remove('column-fade-in');
+                            });
+                        }, 200);
+                    }, 300);
+                }
+            }
+
+            try {
+                await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visible_columns: visibleColumns })
+                });
+            } catch (e) {
+                console.error('Failed to save column visibility:', e);
+            }
+        }
+
         // App bar functions
 
         function toggleProjectDrawer() {
             const appBar = document.querySelector('.app-bar');
-            appBar.classList.toggle('drawer-open');
-            if (appBar.classList.contains('drawer-open')) {
+            const opening = !appBar.classList.contains('drawer-open');
+            appBar.classList.toggle('drawer-open', opening);
+            if (opening) {
                 loadRecentProjects();
+                populateProjectDrawerSettings();
                 document.getElementById('manual-path-input').focus();
             }
         }
 
         function closeProjectDrawer() {
             document.querySelector('.app-bar').classList.remove('drawer-open');
+        }
+
+        function toggleDrawerSection(headerEl) {
+            headerEl.closest('.drawer-settings-section').classList.toggle('open');
+        }
+
+        function populateProjectDrawerSettings() {
+            const container = document.getElementById('project-drawer-settings');
+            if (!container) return;
+            if (!currentProject) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = '';
+            renderArtistManagement();
+            const namingInput = document.getElementById('drawer-file-naming-pattern');
+            if (namingInput) {
+                namingInput.value = currentSettings.file_naming_pattern || '{shot}';
+                updateNamingPreview('drawer-file-naming-pattern', 'drawer-naming-preview');
+            }
+        }
+
+        async function saveProjectDrawerSettings() {
+            const namingInput = document.getElementById('drawer-file-naming-pattern');
+            const pattern = namingInput ? namingInput.value.trim() || '{shot}' : '{shot}';
+            if (!pattern.includes('{shot}')) {
+                showNotification('Naming pattern must include {shot}', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_naming_pattern: pattern })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    currentSettings.file_naming_pattern = pattern;
+                    showNotification('File naming saved', 'success');
+                } else {
+                    showNotification(result.error || 'Failed to save', 'error');
+                }
+            } catch (e) {
+                console.error('Failed to save project settings:', e);
+                showNotification('Failed to save project settings', 'error');
+            }
         }
 
         async function closeProject() {
@@ -73,7 +311,9 @@
         // Close drawer when clicking outside
         document.addEventListener('click', function(e) {
             const appBar = document.querySelector('.app-bar');
-            if (appBar.classList.contains('drawer-open') && !e.target.closest('.app-bar')) {
+            // If the click target was removed from the DOM (e.g. by a re-render),
+            // it won't be connected to the document — don't treat that as "outside".
+            if (appBar.classList.contains('drawer-open') && e.target.isConnected && !e.target.closest('.app-bar')) {
                 closeProjectDrawer();
             }
         });
@@ -175,33 +415,104 @@
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', handlePromptButtonClick);
+            initColumnContextMenu();
             checkForProject();
 
             // Global drag detection for showing drop zones between shots
             let dragCounter = 0;
+            let currentNearestZone = null;
+            let dragRafId = null;
+            let cachedDropZones = null;
+            const DROP_ZONE_THRESHOLD = 45;
+            const DROP_ZONE_HYSTERESIS = 20;
+
+            function updateNearestDropZone(clientY) {
+                if (!cachedDropZones) return;
+                let nearest = null;
+                let minDist = Infinity;
+
+                cachedDropZones.forEach(zone => {
+                    const rect = zone.getBoundingClientRect();
+                    const center = rect.top + rect.height / 2;
+                    const dist = Math.abs(clientY - center);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = zone;
+                    }
+                });
+
+                const target = (nearest && minDist <= DROP_ZONE_THRESHOLD) ? nearest : null;
+
+                if (target !== currentNearestZone) {
+                    // Keep the current zone active until the cursor moves well past the threshold
+                    if (currentNearestZone) {
+                        const currentRect = currentNearestZone.getBoundingClientRect();
+                        const currentDist = Math.abs(clientY - (currentRect.top + currentRect.height / 2));
+                        if (currentDist <= DROP_ZONE_THRESHOLD + DROP_ZONE_HYSTERESIS) return;
+                    }
+                    if (currentNearestZone) currentNearestZone.classList.remove('drag-nearest');
+                    if (target) target.classList.add('drag-nearest');
+                    currentNearestZone = target;
+                }
+            }
+
+            function resetDragState() {
+                dragCounter = 0;
+                document.body.classList.remove('dragging-files');
+                if (currentNearestZone) {
+                    currentNearestZone.classList.remove('drag-nearest');
+                    currentNearestZone = null;
+                }
+                if (dragRafId) {
+                    cancelAnimationFrame(dragRafId);
+                    dragRafId = null;
+                }
+                cachedDropZones = null;
+            }
+
             document.addEventListener('dragenter', (e) => {
                 dragCounter++;
                 if (e.dataTransfer.types.includes('Files')) {
                     document.body.classList.add('dragging-files');
+                    if (!cachedDropZones) {
+                        cachedDropZones = document.querySelectorAll('.drop-between-zone');
+                    }
                 }
+            });
+            document.addEventListener('dragover', (e) => {
+                if (!cachedDropZones) return;
+                if (dragRafId) return;
+                const y = e.clientY;
+                dragRafId = requestAnimationFrame(() => {
+                    updateNearestDropZone(y);
+                    dragRafId = null;
+                });
             });
             document.addEventListener('dragleave', (e) => {
                 dragCounter--;
                 if (dragCounter <= 0 ||
                     e.clientX <= 0 || e.clientY <= 0 ||
                     e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-                    dragCounter = 0;
-                    document.body.classList.remove('dragging-files');
+                    resetDragState();
                 }
             });
-            document.addEventListener('drop', (e) => {
-                dragCounter = 0;
-                document.body.classList.remove('dragging-files');
-            });
-            document.addEventListener('dragend', (e) => {
-                dragCounter = 0;
-                document.body.classList.remove('dragging-files');
-            });
+            document.addEventListener('drop', () => resetDragState());
+            document.addEventListener('dragend', () => resetDragState());
+
+            // Sticky header detection — add 'stuck' class when header is pinned
+            const gridHeader = document.getElementById('main-grid-header');
+            if (gridHeader) {
+                const sentinel = document.createElement('div');
+                sentinel.style.height = '1px';
+                sentinel.style.width = '100%';
+                sentinel.style.pointerEvents = 'none';
+                gridHeader.parentNode.insertBefore(sentinel, gridHeader);
+
+                const observer = new IntersectionObserver(([entry]) => {
+                    gridHeader.classList.toggle('stuck', !entry.isIntersecting);
+                }, { rootMargin: '-49px 0px 0px 0px' });
+                observer.observe(sentinel);
+            }
         });
 
         function handlePromptButtonClick(event) {
@@ -242,7 +553,9 @@
             document.querySelector('.app-bar').classList.add('drawer-open');
             document.getElementById('app-bar-controls').style.display = 'none';
             document.getElementById('close-project-btn').style.display = 'none';
+            document.getElementById('project-drawer-settings').style.display = 'none';
             loadRecentProjects();
+            // Drawer opens via CSS grid-template-rows transition from .drawer-open class
             activateOnboarding();
             setTimeout(() => checkOnboardingTips(), 600);
         }
@@ -270,6 +583,9 @@
             // Show skeleton loading, hide actual grid
             document.getElementById('skeleton-loading').style.display = 'block';
             document.getElementById('shot-grid').style.display = 'none';
+
+            // Wait for settings so column visibility is correct before rendering
+            await settingsReady;
 
             const skeletonStart = Date.now();
             const MIN_SKELETON_TIME = 400; // Minimum time to show skeleton (ms)
@@ -318,6 +634,8 @@
         }
 
         function renderShots() {
+            applyGridTemplate();
+            renderGridHeader();
             const shotList = document.getElementById("shot-list");
             shotList.innerHTML = "";
 
@@ -361,7 +679,7 @@
             const insertBtn = document.createElement("button");
             insertBtn.className = "between-insert-btn";
             insertBtn.title = "Insert new shot";
-            insertBtn.textContent = "+";
+            insertBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
             insertBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 addNewShotAfter(afterShotName);
@@ -435,28 +753,42 @@
             row.className = 'shot-row';
             row.id = `shot-row-${shot.name}`;
 
+            // Artist strip visibility
+            if (isArtistVisible()) {
+                row.classList.add('artist-visible');
+            }
+
             // Check if shot is collapsed
             const isCollapsed = currentSettings.collapsed_shots && currentSettings.collapsed_shots.includes(shot.name);
             if (isCollapsed) {
                 row.classList.add('collapsed');
             }
 
-            // Check if shot is empty (no image and no video)
-            const isEmpty = shot.image.version === 0 && shot.video.version === 0;
+            // Check if shot is empty (no image, no video, no lipsync)
+            const hasLipsync = shot.lipsync && (
+                shot.lipsync.driver?.version > 0 ||
+                shot.lipsync.target?.version > 0 ||
+                shot.lipsync.result?.version > 0 ||
+                (shot.lipsync.custom_files && shot.lipsync.custom_files.length > 0)
+            );
+            const isEmpty = shot.image.version === 0 && shot.video.version === 0 && !hasLipsync;
             const deleteBtn = isEmpty
                 ? `<button class="shot-action-btn delete-btn" onclick="deleteShot('${shot.name}')" title="Delete empty shot"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button>`
                 : '';
 
             row.innerHTML = `
                 <div class="shot-name" onclick="editShotName(this, '${shot.name}')">${shot.name}</div>
-                ${createDropZone(shot, 'image')}
-                ${createDropZone(shot, 'video')}
-                ${'' /* createLipsyncZone(shot) */}
-                <div class="notes-cell">
+                <div class="column-cell${isColumnVisible('image') ? '' : ' column-hidden'}" data-column="image">${createDropZone(shot, 'image')}</div>
+                <div class="column-cell${isColumnVisible('video') ? '' : ' column-hidden'}" data-column="video">${createDropZone(shot, 'video')}</div>
+                <div class="column-cell${isColumnVisible('lipsync') ? '' : ' column-hidden'}" data-column="lipsync">${createLipsyncZone(shot)}</div>
+                ${createArtistStrip(shot)}
+                <div class="notes-cell${isColumnVisible('notes') ? '' : ' column-hidden'}" data-column="notes">
                     <textarea class="notes-input"
                               placeholder="Add notes..."
-                              onchange="saveNotes('${shot.name}', this.value)"
-                              onblur="saveNotes('${shot.name}', this.value)">${shot.notes || ''}</textarea>
+                              onchange="saveNotes('${shot.name}', this.value)">${shot.notes || ''}</textarea>
+                    <button class="notes-expand-btn" onclick="openNotesModal('${shot.name}')" title="Expand notes">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25-5.25v4.5m0-4.5h-4.5m4.5 0L15 9m-11.25 11.25v-4.5m0 4.5h4.5m-4.5 0L9 15m11.25 5.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                    </button>
                 </div>
                 <div class="collapse-cell">
                     <button class="collapse-button"
@@ -469,6 +801,381 @@
             `;
 
             return row;
+        }
+
+        // ===== ARTIST STRIP =====
+
+        function escapeAttr(str) {
+            return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function isArtistVisible() {
+            const cols = getVisibleColumnIds();
+            return cols.includes('artist');
+        }
+
+        const ARTIST_COLORS = [
+            '#E05252', // warm red
+            '#E8875B', // soft coral
+            '#E8AA4A', // golden amber
+            '#9FCC5A', // lime green
+            '#4EAD7B', // jade
+            '#3FB5AC', // teal
+            '#4A9FD9', // sky blue
+            '#6B72D9', // periwinkle
+            '#9B6BD9', // soft violet
+            '#D970A8', // rose pink
+        ];
+
+        function getArtistInitials(name) {
+            const parts = name.trim().split(/\s+/);
+            if (parts.length === 1) return parts[0][0].toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function getNextArtistColor() {
+            const usedColors = (currentSettings.artists || []).map(a => a.color);
+            return ARTIST_COLORS.find(c => !usedColors.includes(c)) || ARTIST_COLORS[0];
+        }
+
+        function generateArtistId() {
+            return Math.random().toString(16).slice(2, 8);
+        }
+
+        function getArtistForShot(shotName) {
+            const artistId = (currentSettings.shot_artists || {})[shotName];
+            if (!artistId) return null;
+            return (currentSettings.artists || []).find(a => a.id === artistId) || null;
+        }
+
+        function createArtistStrip(shot) {
+            const artist = getArtistForShot(shot.name);
+            const bgStyle = artist ? `background: ${artist.color};` : '';
+            const initial = artist ? getArtistInitials(artist.name).charAt(0) : '+';
+            const title = artist ? escapeAttr(artist.name) : 'Assign artist';
+            const cls = artist ? 'artist-strip' : 'artist-strip artist-strip-empty';
+            return `<div class="${cls}" style="${bgStyle}" title="${title}" onclick="openArtistDropdown(event, '${escapeAttr(shot.name)}')">${initial}</div>`;
+        }
+
+        let activeArtistDropdown = null;
+        let activeDropdownOutsideHandler = null;
+
+        function closeArtistDropdown() {
+            if (activeDropdownOutsideHandler) {
+                document.removeEventListener('click', activeDropdownOutsideHandler);
+                activeDropdownOutsideHandler = null;
+            }
+            if (activeArtistDropdown) {
+                activeArtistDropdown.remove();
+                activeArtistDropdown = null;
+            }
+        }
+
+        function openArtistDropdown(event, shotName) {
+            event.stopPropagation();
+            closeArtistDropdown();
+
+            const trigger = event.currentTarget;
+            const rect = trigger.getBoundingClientRect();
+            const artists = currentSettings.artists || [];
+            const currentArtistId = (currentSettings.shot_artists || {})[shotName];
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'artist-dropdown show';
+            dropdown.innerHTML = `
+                <input type="text" class="artist-dropdown-search" placeholder="Search or add..." autocomplete="off">
+                <div class="artist-dropdown-list"></div>
+            `;
+
+            document.body.appendChild(dropdown);
+            activeArtistDropdown = dropdown;
+
+            // Position dropdown
+            const dropdownRect = dropdown.getBoundingClientRect();
+            let left = rect.left + rect.width / 2 - dropdownRect.width / 2;
+            let top = rect.bottom + 4;
+            if (left < 8) left = 8;
+            if (left + dropdownRect.width > window.innerWidth - 8) left = window.innerWidth - dropdownRect.width - 8;
+            if (top + dropdownRect.height > window.innerHeight - 8) top = rect.top - dropdownRect.height - 4;
+            dropdown.style.left = left + 'px';
+            dropdown.style.top = top + 'px';
+
+            const searchInput = dropdown.querySelector('.artist-dropdown-search');
+            const listEl = dropdown.querySelector('.artist-dropdown-list');
+
+            function renderList(filter) {
+                const query = (filter || '').toLowerCase();
+                const filtered = artists.filter(a => a.name.toLowerCase().includes(query));
+                let html = '';
+
+                // Unassign option if currently assigned
+                if (currentArtistId && !query) {
+                    html += `<div class="artist-dropdown-item artist-dropdown-unassign" data-action="unassign">
+                        <span class="artist-dropdown-strip" style="background: var(--color-text-tertiary);"></span>
+                        <span class="artist-dropdown-name"><span class="artist-dropdown-x">&times;</span> Unassign</span>
+                    </div>`;
+                }
+
+                filtered.forEach(a => {
+                    const active = a.id === currentArtistId ? ' active' : '';
+                    html += `<div class="artist-dropdown-item${active}" data-id="${a.id}">
+                        <span class="artist-dropdown-strip" style="background: ${a.color};"></span>
+                        <span class="artist-dropdown-name">${escapeAttr(a.name)}</span>
+                    </div>`;
+                });
+
+                // Show "Create" option if query doesn't match any existing artist
+                if (query && !artists.some(a => a.name.toLowerCase() === query)) {
+                    html += `<div class="artist-dropdown-item artist-dropdown-create" data-action="create">
+                        <span class="artist-dropdown-strip" style="background: ${getNextArtistColor()};"></span>
+                        <span class="artist-dropdown-name"><span class="artist-dropdown-plus">+</span> Create "${escapeAttr(filter)}"</span>
+                    </div>`;
+                }
+
+                if (!html) {
+                    html = '<div class="artist-dropdown-empty">Type to add an artist</div>';
+                }
+
+                listEl.innerHTML = html;
+            }
+
+            renderList('');
+            searchInput.focus();
+
+            searchInput.addEventListener('input', () => renderList(searchInput.value.trim()));
+
+            listEl.addEventListener('click', async (e) => {
+                const item = e.target.closest('.artist-dropdown-item');
+                if (!item) return;
+
+                if (item.dataset.action === 'unassign') {
+                    const shotArtists = { ...(currentSettings.shot_artists || {}) };
+                    delete shotArtists[shotName];
+                    currentSettings.shot_artists = shotArtists;
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                    return;
+                }
+
+                if (item.dataset.action === 'create') {
+                    const name = searchInput.value.trim();
+                    if (!name) return;
+                    showDropdownColorPicker(dropdown, name, shotName);
+                    return;
+                }
+
+                const artistId = item.dataset.id;
+                if (artistId) {
+                    const shotArtists = { ...(currentSettings.shot_artists || {}), [shotName]: artistId };
+                    currentSettings.shot_artists = shotArtists;
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                }
+            });
+
+            // Close on click outside
+            setTimeout(() => {
+                activeDropdownOutsideHandler = function(e) {
+                    if (!dropdown.contains(e.target)) {
+                        closeArtistDropdown();
+                    }
+                };
+                document.addEventListener('click', activeDropdownOutsideHandler);
+            }, 0);
+
+            // Close on Escape
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeArtistDropdown();
+            });
+        }
+
+        function showDropdownColorPicker(dropdown, artistName, shotName) {
+            // Defer DOM replacement so the click-outside handler still sees
+            // the original target inside the dropdown during this event cycle.
+            requestAnimationFrame(() => {
+                const listEl = dropdown.querySelector('.artist-dropdown-list');
+                const searchInput = dropdown.querySelector('.artist-dropdown-search');
+                if (searchInput) searchInput.style.display = 'none';
+
+                const defaultColor = getNextArtistColor();
+                let html = '<div class="artist-dropdown-color-title">Pick a color for ' + escapeAttr(artistName) + '</div>';
+                html += '<div class="artist-dropdown-color-grid">';
+                ARTIST_COLORS.forEach(color => {
+                    const selected = color === defaultColor ? ' selected' : '';
+                    html += `<button class="artist-dropdown-color-opt${selected}" style="background: ${color};" data-color="${color}"></button>`;
+                });
+                html += '</div>';
+                listEl.innerHTML = html;
+
+                listEl.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('.artist-dropdown-color-opt');
+                    if (!btn) return;
+                    const color = btn.dataset.color;
+                    const newArtist = { id: generateArtistId(), name: artistName, color };
+                    currentSettings.artists = [...(currentSettings.artists || []), newArtist];
+                    currentSettings.shot_artists = { ...(currentSettings.shot_artists || {}), [shotName]: newArtist.id };
+                    await saveArtistSettings();
+                    closeArtistDropdown();
+                    refreshArtistStrip(shotName);
+                });
+            });
+        }
+
+        async function saveArtistSettings() {
+            try {
+                await fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        artists: currentSettings.artists || [],
+                        shot_artists: currentSettings.shot_artists || {}
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to save artist settings:', e);
+            }
+        }
+
+        function renderArtistManagement() {
+            const container = document.getElementById('drawer-artist-management');
+            if (!container) return;
+            const artists = currentSettings.artists || [];
+
+            let html = '<div class="artist-settings-list">';
+            artists.forEach(a => {
+                html += `
+                    <div class="artist-settings-row" data-id="${a.id}">
+                        <button class="btn btn-icon btn-ghost artist-delete-btn" onclick="deleteArtistInSettings(event, '${a.id}')" title="Remove artist">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                        <button class="artist-swatch-btn" style="background: ${a.color};" onclick="openArtistColorPicker(event, '${a.id}')" title="Change color"></button>
+                        <input type="text" class="artist-name-input" value="${escapeAttr(a.name)}" data-id="${a.id}"
+                               onchange="renameArtistInSettings('${a.id}', this.value)">
+                    </div>`;
+            });
+            html += '</div>';
+            html += `<button class="btn btn-sm btn-secondary" onclick="addArtistInSettings()" style="margin-top: 8px;">+ Add Artist</button>`;
+            container.innerHTML = html;
+        }
+
+        function addArtistInSettings() {
+            const newArtist = { id: generateArtistId(), name: 'New Artist', color: getNextArtistColor() };
+            currentSettings.artists = [...(currentSettings.artists || []), newArtist];
+            renderArtistManagement();
+            saveArtistSettings();
+            // Focus the new input
+            const inputs = document.querySelectorAll('.artist-name-input');
+            const lastInput = inputs[inputs.length - 1];
+            if (lastInput) { lastInput.select(); lastInput.focus(); }
+        }
+
+        function renameArtistInSettings(artistId, newName) {
+            newName = newName.trim();
+            if (!newName) return;
+            const artists = currentSettings.artists || [];
+            const artist = artists.find(a => a.id === artistId);
+            if (artist && artist.name !== newName) {
+                artist.name = newName;
+                saveArtistSettings();
+                refreshAllArtistStrips();
+            }
+        }
+
+        function deleteArtistInSettings(event, artistId) {
+            event.stopPropagation();
+            currentSettings.artists = (currentSettings.artists || []).filter(a => a.id !== artistId);
+            // Remove all assignments referencing this artist
+            const shotArtists = { ...(currentSettings.shot_artists || {}) };
+            for (const [shot, id] of Object.entries(shotArtists)) {
+                if (id === artistId) delete shotArtists[shot];
+            }
+            currentSettings.shot_artists = shotArtists;
+            saveArtistSettings();
+            renderArtistManagement();
+            refreshAllArtistStrips();
+        }
+
+        let activeColorPicker = null;
+        let activeColorPickerCleanup = null;
+
+        function closeColorPicker() {
+            if (activeColorPicker) {
+                activeColorPicker.remove();
+                activeColorPicker = null;
+            }
+            if (activeColorPickerCleanup) {
+                activeColorPickerCleanup();
+                activeColorPickerCleanup = null;
+            }
+        }
+
+        function openArtistColorPicker(event, artistId) {
+            event.stopPropagation();
+            closeColorPicker();
+
+            const btn = event.currentTarget;
+            const rect = btn.getBoundingClientRect();
+            const picker = document.createElement('div');
+            picker.className = 'artist-color-picker';
+
+            ARTIST_COLORS.forEach(color => {
+                const dot = document.createElement('button');
+                dot.className = 'artist-color-option';
+                dot.style.background = color;
+                dot.onclick = (e) => {
+                    e.stopPropagation();
+                    const artist = (currentSettings.artists || []).find(a => a.id === artistId);
+                    if (artist) {
+                        artist.color = color;
+                        saveArtistSettings();
+                        renderArtistManagement();
+                        refreshAllArtistStrips();
+                    }
+                    closeColorPicker();
+                };
+                picker.appendChild(dot);
+            });
+
+            document.body.appendChild(picker);
+            activeColorPicker = picker;
+
+            // Position
+            const pickerRect = picker.getBoundingClientRect();
+            let left = rect.left;
+            let top = rect.bottom + 4;
+            if (left + pickerRect.width > window.innerWidth - 8) left = window.innerWidth - pickerRect.width - 8;
+            if (top + pickerRect.height > window.innerHeight - 8) top = rect.top - pickerRect.height - 4;
+            picker.style.left = left + 'px';
+            picker.style.top = top + 'px';
+
+            setTimeout(() => {
+                function handler(e) {
+                    if (!picker.contains(e.target)) {
+                        closeColorPicker();
+                    }
+                }
+                document.addEventListener('click', handler);
+                activeColorPickerCleanup = () => document.removeEventListener('click', handler);
+            }, 0);
+        }
+
+        function refreshArtistStrip(shotName) {
+            const row = document.getElementById(`shot-row-${shotName}`);
+            if (!row) return;
+            const shot = shots.find(s => s.name === shotName);
+            if (!shot) return;
+            const oldStrip = row.querySelector('.artist-strip');
+            if (oldStrip) {
+                const temp = document.createElement('div');
+                temp.innerHTML = createArtistStrip(shot);
+                oldStrip.replaceWith(temp.firstElementChild);
+            }
+        }
+
+        function refreshAllArtistStrips() {
+            shots.forEach(s => refreshArtistStrip(s.name));
         }
 
         function createDropZone(shot, type) {
@@ -541,40 +1248,252 @@
         }
 
         function createLipsyncZone(shot) {
-            const parts = ['driver', 'target', 'result'];
-            let html = '<div class="lipsync-cell">';
-            for (const part of parts) {
-                const file = shot.lipsync[part];
-                const hasFile = file.version > 0;
-                const label = part.charAt(0).toUpperCase() + part.slice(1);
-                if (hasFile) {
-                    const thumbnailUrl = file.thumbnail ? `${file.thumbnail}?v=${Date.now()}` : null;
-                    const needsLazyLoad = file.version > 0 && !file.thumbnail;
-                    const thumbnailStyle = thumbnailUrl ?
-                        `background-image: url('${thumbnailUrl}'); background-size: cover; background-position: center;` :
-                        'background: var(--color-bg-hover);';
-                    html += `
-                        <div class="drop-zone lipsync-drop" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
-                            <div class="file-preview lipsync-preview">
-                                <div class="preview-thumbnail lipsync-thumbnail${needsLazyLoad ? ' loading' : ''}" data-label="${label}" style="${thumbnailStyle}" ${needsLazyLoad ? `data-lazy-thumb="true" data-shot="${shot.name}" data-asset-type="${part}"` : ''} onclick="revealFile('${file.file}')"></div>
-                                <div class="version-badge">v${String(file.version).padStart(3, '0')}</div>
-                                <button class="prompt-button" title="View and edit prompt"
-                                        data-shot="${shot.name}"
-                                        data-type="${part}"
-                                        data-version="${file.version}">P</button>
-                            </div>
-                        </div>`;
-                } else {
-                    html += `
-                        <div class="drop-zone lipsync-drop empty" ondragover="handleDragOver(event, '${part}')" ondrop="handleDrop(event, '${shot.name}', '${part}')" ondragleave="handleDragLeave(event)">
-                            <div class="drop-placeholder">
-                                <div class="text">${label}</div>
-                            </div>
-                        </div>`;
-                }
+            const lipsync = shot.lipsync;
+            const bestThumb = lipsync.best_thumbnail;
+            const hasAudioOnly = lipsync.has_audio_only;
+            const customFiles = lipsync.custom_files || [];
+
+            // Count total files
+            let totalFiles = customFiles.length;
+            for (const part of ['driver', 'target', 'result']) {
+                if (lipsync[part] && lipsync[part].version > 0) totalFiles++;
             }
-            html += '</div>';
-            return html;
+            const hasFiles = totalFiles > 0;
+
+            let defaultContent = '';
+            if (hasFiles && bestThumb) {
+                const thumbUrl = `${bestThumb}?v=${Date.now()}`;
+                defaultContent = `
+                    <div class="lipsync-default"
+                         style="background-image: url('${thumbUrl}');"
+                         onclick="revealLipsyncFolder('${shot.name}')">
+                        ${totalFiles > 1 ? `<span class="lipsync-file-count">${totalFiles} files</span>` : ''}
+                    </div>`;
+            } else if (hasFiles && hasAudioOnly) {
+                defaultContent = `
+                    <div class="lipsync-default"
+                         style="background: var(--color-bg-hover); display: flex; align-items: center; justify-content: center;"
+                         onclick="revealLipsyncFolder('${shot.name}')">
+                        <svg class="lipsync-audio-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="28" height="28"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>
+                        ${totalFiles > 1 ? `<span class="lipsync-file-count">${totalFiles} files</span>` : ''}
+                    </div>`;
+            } else if (hasFiles) {
+                // Has files but no thumbnail yet (loading)
+                defaultContent = `
+                    <div class="lipsync-default"
+                         style="background: var(--color-bg-hover);"
+                         onclick="revealLipsyncFolder('${shot.name}')">
+                        <span class="lipsync-file-count">${totalFiles} file${totalFiles > 1 ? 's' : ''}</span>
+                    </div>`;
+            } else {
+                // Empty — show lip sync icon placeholder
+                defaultContent = `
+                    <div class="lipsync-default empty">
+                        <svg class="drop-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
+                    </div>`;
+            }
+
+            // Quadrant drop overlay (shown on drag, and on hover when empty)
+            const quadrantOverlay = `
+                <div class="lipsync-drop-overlay">
+                    <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'driver')"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleDrop(event, '${shot.name}', 'driver')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Driver</span>
+                    </div>
+                    <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'target')"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleDrop(event, '${shot.name}', 'target')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Target</span>
+                    </div>
+                    <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'result')"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleDrop(event, '${shot.name}', 'result')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Result</span>
+                    </div>
+                    <div class="lipsync-quadrant"
+                         onclick="openLipsyncFileDialog('${shot.name}', 'lipsync_custom')"
+                         ondragover="handleLipsyncQuadrantDragOver(event)"
+                         ondrop="handleLipsyncCustomDrop(event, '${shot.name}')"
+                         ondragleave="handleLipsyncQuadrantDragLeave(event)">
+                        <span class="quadrant-label">Custom</span>
+                    </div>
+                </div>`;
+
+            return `<div class="lipsync-cell${hasFiles ? '' : ' hover-active'}"
+                         ondragenter="handleLipsyncCellDragEnter(event)"
+                         ondragover="handleLipsyncCellDragOver(event)"
+                         ondragleave="handleLipsyncCellDragLeave(event)"
+                         ondrop="handleLipsyncCellDrop(event)">
+                        ${defaultContent}
+                        ${quadrantOverlay}
+                    </div>`;
+        }
+
+        // Lipsync cell drag handlers — show/hide quadrant overlay
+        let lipsyncDragCounter = 0;
+
+        function clearAllLipsyncDragState() {
+            document.querySelectorAll('.lipsync-cell.drag-active').forEach(c => c.classList.remove('drag-active'));
+            lipsyncDragCounter = 0;
+        }
+
+        function handleLipsyncCellDragEnter(event) {
+            event.preventDefault();
+            const cell = event.currentTarget;
+            if (!cell.classList.contains('drag-active')) {
+                clearAllLipsyncDragState();
+            }
+            lipsyncDragCounter++;
+            cell.classList.add('drag-active');
+        }
+
+        function handleLipsyncCellDragOver(event) {
+            event.preventDefault();
+        }
+
+        function handleLipsyncCellDragLeave(event) {
+            lipsyncDragCounter--;
+            if (lipsyncDragCounter <= 0) {
+                lipsyncDragCounter = 0;
+                event.currentTarget.classList.remove('drag-active');
+            }
+        }
+
+        function handleLipsyncCellDrop(event) {
+            clearAllLipsyncDragState();
+        }
+
+        // Quadrant-level drag handlers
+        function handleLipsyncQuadrantDragOver(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleLipsyncQuadrantDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function openLipsyncFileDialog(shotName, fileType) {
+            // Driver and Result only accept video/audio; Target and Custom accept images too
+            const acceptsImages = (fileType !== 'driver' && fileType !== 'result');
+            const accept = acceptsImages ? 'video/*,audio/*,image/*' : 'video/*,audio/*';
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = accept;
+            input.style.display = 'none';
+            input.addEventListener('change', () => {
+                if (input.files && input.files[0]) {
+                    if (fileType === 'lipsync_custom') {
+                        pendingCustomLipsyncFile = input.files[0];
+                        pendingCustomLipsyncShot = shotName;
+                        openLipsyncCustomModal();
+                    } else {
+                        uploadFile(input.files[0], shotName, fileType);
+                    }
+                }
+                input.remove();
+            });
+            document.body.appendChild(input);
+            input.click();
+        }
+
+        // Custom lipsync drop — stores file temporarily and shows label modal
+        let pendingCustomLipsyncFile = null;
+        let pendingCustomLipsyncShot = null;
+
+        function handleLipsyncCustomDrop(event, shotName) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            clearAllLipsyncDragState();
+
+            const files = event.dataTransfer.files;
+            if (files.length === 0) return;
+
+            pendingCustomLipsyncFile = files[0];
+            pendingCustomLipsyncShot = shotName;
+            openLipsyncCustomModal();
+        }
+
+        function openLipsyncCustomModal() {
+            const modal = document.getElementById('lipsync-custom-modal');
+            const input = document.getElementById('lipsync-custom-label-input');
+            modal.style.display = 'flex';
+            input.value = '';
+            requestAnimationFrame(() => {
+                modal.classList.add('show');
+                input.focus();
+            });
+
+            // Enter key to confirm
+            input.onkeydown = function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    confirmLipsyncCustomLabel();
+                }
+            };
+        }
+
+        function closeLipsyncCustomModal() {
+            const modal = document.getElementById('lipsync-custom-modal');
+            modal.classList.remove('show');
+            setTimeout(() => { modal.style.display = 'none'; }, 200);
+            pendingCustomLipsyncFile = null;
+            pendingCustomLipsyncShot = null;
+        }
+
+        async function confirmLipsyncCustomLabel() {
+            const input = document.getElementById('lipsync-custom-label-input');
+            const label = input.value.trim();
+            if (!label) {
+                input.focus();
+                return;
+            }
+            if (!pendingCustomLipsyncFile || !pendingCustomLipsyncShot) return;
+
+            const formData = new FormData();
+            formData.append('file', pendingCustomLipsyncFile);
+            formData.append('shot_name', pendingCustomLipsyncShot);
+            formData.append('file_type', 'lipsync_custom');
+            formData.append('custom_label', label);
+
+            closeLipsyncCustomModal();
+
+            try {
+                const response = await fetch('/api/shots/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification(`Uploaded custom lipsync file`);
+                    await loadShots();
+                } else {
+                    showNotification(result.error || 'Upload failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Upload failed: ' + e.message, 'error');
+            }
+        }
+
+        async function revealLipsyncFolder(shotName) {
+            try {
+                await fetch('/api/shots/open-folder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shot_name: shotName, subfolder: 'lipsync' })
+                });
+            } catch (e) {
+                console.error('Failed to open lipsync folder:', e);
+            }
         }
 
         async function addNewShot() {
@@ -682,6 +1601,15 @@
             }
 
             const file = files[0];
+
+            // Driver and Result only accept video/audio, not images
+            const imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
+            if ((expectedType === 'driver' || expectedType === 'result') &&
+                imageExts.some(ext => file.name.toLowerCase().endsWith(ext))) {
+                showNotification(`${expectedType.charAt(0).toUpperCase() + expectedType.slice(1)} does not accept image files`, 'error');
+                return;
+            }
+
             await uploadFile(file, shotName, expectedType);
         }
 
@@ -800,6 +1728,48 @@
                 showNotification('Error saving notes', 'error');
             }
         }
+
+let _notesModalTimeout = null;
+
+function openNotesModal(shotName) {
+    if (_notesModalTimeout) {
+        clearTimeout(_notesModalTimeout);
+        _notesModalTimeout = null;
+    }
+    const modal = document.getElementById('notes-modal');
+    modal.dataset.shot = shotName;
+    document.getElementById('notes-modal-title').textContent = `${shotName} — Notes`;
+    const shot = shots.find(s => s.name === shotName);
+    const textarea = document.getElementById('notes-modal-text');
+    textarea.value = shot ? (shot.notes || '') : '';
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+        textarea.focus();
+    });
+}
+
+function closeNotesModal() {
+    const modal = document.getElementById('notes-modal');
+    modal.classList.remove('show');
+    _notesModalTimeout = setTimeout(() => {
+        modal.style.display = 'none';
+        _notesModalTimeout = null;
+    }, 200);
+}
+
+function saveNotesModal() {
+    const modal = document.getElementById('notes-modal');
+    const shotName = modal.dataset.shot;
+    const notes = document.getElementById('notes-modal-text').value;
+    const row = document.querySelector(`.shot-row[data-shot="${CSS.escape(shotName)}"]`);
+    if (row) {
+        const inlineTextarea = row.querySelector('.notes-input');
+        if (inlineTextarea) inlineTextarea.value = notes;
+    }
+    saveNotes(shotName, notes);
+    closeNotesModal();
+}
 
 function editShotName(element, currentName) {
     // Prevent editing if already in edit mode
@@ -1107,6 +2077,8 @@ function closeShotLimitModal() {
 let currentSettings = {
     thumbnail_click_behavior: 'version_folder'
 };
+let _settingsResolve;
+const settingsReady = new Promise(resolve => { _settingsResolve = resolve; });
 
 async function loadSettings() {
     try {
@@ -1122,9 +2094,23 @@ async function loadSettings() {
             // Apply saved theme and mode
             applyTheme(currentSettings.color_theme);
             applyMode(currentSettings.color_mode || 'dark');
+            // Migration: notes was previously a fixed column, add to saved visibility
+            if (currentSettings.visible_columns && !currentSettings.visible_columns.includes('notes')) {
+                currentSettings.visible_columns.push('notes');
+                fetch('/api/settings/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visible_columns: currentSettings.visible_columns })
+                }).catch(() => {});
+            }
+            // Apply column visibility
+            applyGridTemplate();
+            renderGridHeader();
         }
     } catch (e) {
         console.error('Failed to load settings:', e);
+    } finally {
+        _settingsResolve();
     }
 }
 
@@ -1182,9 +2168,7 @@ async function openSettingsModal() {
         s.classList.toggle('active', s.dataset.theme === activeTheme);
     });
 
-    const namingInput = document.getElementById('file-naming-pattern');
-    namingInput.value = currentSettings.file_naming_pattern || '{shot}';
-    updateNamingPreview();
+    fetchVersion();
 
     const modal = document.getElementById('settings-modal');
     modal.style.display = 'flex';
@@ -1204,20 +2188,43 @@ function closeSettingsModal() {
     }, 200);
 }
 
-function insertNamingVar(varName) {
-    const input = document.getElementById('file-naming-pattern');
+async function fetchVersion() {
+    const el = document.getElementById('app-version');
+    try {
+        const res = await fetch('/api/settings/version');
+        const data = await res.json();
+        el.textContent = data.success ? `${data.commit} (${data.date})` : 'unknown';
+    } catch {
+        el.textContent = 'unknown';
+    }
+}
+
+function copyVersion() {
+    const text = document.getElementById('app-version').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Version copied to clipboard', 'success');
+    });
+}
+
+function insertNamingVar(varName, inputId) {
+    inputId = inputId || 'drawer-file-naming-pattern';
+    const input = document.getElementById(inputId);
     const start = input.selectionStart;
     const end = input.selectionEnd;
     const value = input.value;
     input.value = value.substring(0, start) + varName + value.substring(end);
     input.selectionStart = input.selectionEnd = start + varName.length;
     input.focus();
-    updateNamingPreview();
+    const previewId = inputId.replace('file-naming-pattern', 'naming-preview');
+    updateNamingPreview(inputId, previewId);
 }
 
-function updateNamingPreview() {
-    const input = document.getElementById('file-naming-pattern');
-    const preview = document.getElementById('naming-preview');
+function updateNamingPreview(inputId, previewId) {
+    inputId = inputId || 'drawer-file-naming-pattern';
+    previewId = previewId || 'drawer-naming-preview';
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (!input || !preview) return;
     const pattern = input.value.trim() || '{shot}';
     const projectName = currentProject ? currentProject.name : 'ProjectName';
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -1228,8 +2235,9 @@ function updateNamingPreview() {
     preview.textContent = 'Preview: ' + resolved + '_v001.jpg';
 }
 
-function _getNamingPatternFromInput() {
-    const input = document.getElementById('file-naming-pattern');
+function _getNamingPatternFromInput(inputId) {
+    inputId = inputId || 'drawer-file-naming-pattern';
+    const input = document.getElementById(inputId);
     const pattern = input.value.trim() || '{shot}';
     if (!pattern.includes('{shot}')) {
         showNotification('Naming pattern must include {shot}', 'error');
@@ -1238,8 +2246,8 @@ function _getNamingPatternFromInput() {
     return pattern;
 }
 
-async function confirmApplyNaming() {
-    const pattern = _getNamingPatternFromInput();
+async function confirmApplyNaming(inputId) {
+    const pattern = _getNamingPatternFromInput(inputId);
     if (!pattern) return;
     try {
         const response = await fetch('/api/settings/rename-files-preview', {
@@ -1274,7 +2282,7 @@ function closeRenameModal() {
 }
 
 async function executeApplyNaming() {
-    const pattern = _getNamingPatternFromInput();
+    const pattern = _getNamingPatternFromInput('drawer-file-naming-pattern');
     if (!pattern) return;
     closeRenameModal();
     showNotification('Renaming files...', 'info');
@@ -1290,7 +2298,6 @@ async function executeApplyNaming() {
                 (result.errors > 0 ? ` (${result.errors} errors)` : '');
             showNotification(msg, result.errors > 0 ? 'warning' : 'success');
             currentSettings.file_naming_pattern = pattern;
-            closeSettingsModal();
             if (typeof loadShots === 'function') loadShots();
         } else {
             showNotification(result.error || 'Failed to rename files', 'error');
@@ -1303,13 +2310,6 @@ async function executeApplyNaming() {
 
 async function saveSettings() {
     const thumbnailDropdown = document.getElementById('thumbnail-click-behavior');
-    const namingInput = document.getElementById('file-naming-pattern');
-    const namingPattern = namingInput.value.trim() || '{shot}';
-
-    if (!namingPattern.includes('{shot}')) {
-        showNotification('Naming pattern must include {shot}', 'error');
-        return;
-    }
 
     const activeSwatch = document.querySelector('.theme-swatch.active');
     const selectedTheme = activeSwatch ? activeSwatch.dataset.theme : 'default';
@@ -1317,8 +2317,7 @@ async function saveSettings() {
     const newSettings = {
         thumbnail_click_behavior: thumbnailDropdown.value,
         color_theme: selectedTheme,
-        color_mode: currentSettings.color_mode || 'dark',
-        file_naming_pattern: namingPattern
+        color_mode: currentSettings.color_mode || 'dark'
     };
 
     try {
@@ -1532,8 +2531,12 @@ async function toggleShotCollapse(shotName) {
             row.classList.remove('expanding');
         }, 700);
     } else {
-        // Collapsing: just add collapsed class (CSS animation handles the rest)
-        row.classList.add('collapsed');
+        // Collapsing: animate with collapsing class, then swap to static collapsed state
+        row.classList.add('collapsing');
+        setTimeout(() => {
+            row.classList.remove('collapsing');
+            row.classList.add('collapsed');
+        }, 700);
     }
 
     // Update the collapsed_shots array
@@ -1598,6 +2601,9 @@ async function loadReferenceImages() {
         if (result.success) {
             referenceImages = result.data;
             renderReferenceImages();
+            if (result.migrated) {
+                showNotification(`Migrated ${result.migrated} reference image(s) to versioned format`, 'warning');
+            }
         } else {
             console.error('Failed to load reference images:', result.error);
         }
@@ -1647,13 +2653,38 @@ function createReferenceImageElement(img) {
     // Escape single quotes in filename for onclick attribute
     const escapedFilename = img.filename.replace(/'/g, "\\'");
 
+    const activeVersion = img.active_version || img.version || 0;
+    const maxVersion = img.version || 0;
+
+    // Build version dropdown if more than one version exists
+    let versionHtml = '';
+    if (maxVersion > 1) {
+        let versionItems = '';
+        for (let v = maxVersion; v >= 1; v--) {
+            const isCurrent = v === activeVersion;
+            versionItems += `<div class="version-dropdown-item${isCurrent ? ' current' : ''}"
+                                 data-filename="${img.filename}"
+                                 data-version="${v}"
+                                 onclick="selectRefVersion(event, '${escapedFilename}', ${v})">v${String(v).padStart(3, '0')}</div>`;
+        }
+        versionHtml = `
+            <div class="version-dropdown-container">
+                <div class="version-badge" onclick="toggleShotVersionDropdown(event, this)">v${String(activeVersion).padStart(3, '0')}</div>
+                <div class="version-dropdown-menu">${versionItems}</div>
+            </div>`;
+    }
+
     item.innerHTML = `
-        <div class="ref-drop-zone">
+        <div class="ref-drop-zone"
+             ondragover="handleRefDragOver(event)"
+             ondragleave="handleRefDragLeave(event)"
+             ondrop="handleRefVersionDrop(event, '${escapedFilename}')">
             <img src="${imageUrl}"
                  class="ref-image-preview"
                  alt="${img.filename}"
                  title="${img.filename}"
                  onclick="revealRefImage('${escapedFilename}')">
+            ${versionHtml}
         </div>
         <div class="ref-image-filename"
              onclick="editRefImageName('${escapedFilename}')"
@@ -1674,31 +2705,45 @@ function handleRefDragLeave(event) {
     event.currentTarget.classList.remove('drag-over');
 }
 
-async function handleRefDrop(event) {
+const ALLOWED_REF_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+
+function getValidDroppedImage(event) {
     event.preventDefault();
     event.currentTarget.classList.remove('drag-over');
 
     const files = event.dataTransfer.files;
     if (files.length === 0) {
         showNotification('No files dropped', 'error');
-        return;
+        return null;
     }
 
     const file = files[0];
     const ext = file.name.toLowerCase().split('.').pop();
 
-    if (!['jpg', 'jpeg', 'png'].includes(ext)) {
-        showNotification('Only JPG and PNG images are allowed', 'error');
-        return;
+    if (!ALLOWED_REF_EXTENSIONS.includes(ext)) {
+        showNotification('Only JPG, PNG and WebP images are allowed', 'error');
+        return null;
     }
 
-    await uploadReferenceImage(file);
+    return file;
+}
+
+async function handleRefDrop(event) {
+    const file = getValidDroppedImage(event);
+    if (file) await uploadReferenceImage(file);
+}
+
+async function handleRefVersionDrop(event, targetFilename) {
+    event.stopPropagation();
+    resetDragState();
+    const file = getValidDroppedImage(event);
+    if (file) await uploadReferenceImage(file, targetFilename);
 }
 
 function openRefImageDialog() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/jpeg,image/jpg,image/png';
+    input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
     input.style.display = 'none';
     input.addEventListener('change', () => {
         if (input.files && input.files[0]) {
@@ -1710,9 +2755,12 @@ function openRefImageDialog() {
     input.click();
 }
 
-async function uploadReferenceImage(file) {
+async function uploadReferenceImage(file, targetFilename = null) {
     const formData = new FormData();
     formData.append('file', file);
+    if (targetFilename) {
+        formData.append('target_name', targetFilename);
+    }
 
     try {
         showNotification('Uploading reference image...');
@@ -1791,6 +2839,43 @@ async function revealRefImage(filename) {
     } catch (error) {
         console.error('Reveal failed:', error);
         showNotification('Failed to reveal file', 'error');
+    }
+}
+
+async function selectRefVersion(event, filename, selectedVersion) {
+    event.stopPropagation();
+
+    const dropdownItem = event.target.closest('.version-dropdown-item');
+    const container = dropdownItem.closest('.version-dropdown-container');
+    const badge = container.querySelector('.version-badge');
+    const menu = container.querySelector('.version-dropdown-menu');
+    const preview = container.closest('.ref-drop-zone').querySelector('.ref-image-preview');
+
+    menu.classList.remove('show');
+    badge.textContent = `v${String(selectedVersion).padStart(3, '0')}`;
+    menu.querySelectorAll('.version-dropdown-item').forEach(item => item.classList.remove('current'));
+    dropdownItem.classList.add('current');
+
+    try {
+        const response = await fetch('/api/reference/restore-version', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, version: selectedVersion })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            const src = result.data?.thumbnail
+                ? `${result.data.thumbnail}?t=${Date.now()}`
+                : `/api/reference/image/${encodeURIComponent(filename)}?t=${Date.now()}`;
+            preview.src = src;
+        } else {
+            showNotification(result.error || 'Failed to restore version', 'error');
+        }
+    } catch (error) {
+        console.error('Error restoring version:', error);
+        showNotification('Failed to restore version', 'error');
     }
 }
 
