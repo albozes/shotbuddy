@@ -2680,6 +2680,8 @@ async function handleRefDrop(event) {
 
 async function handleRefVersionDrop(event, targetFilename) {
     event.stopPropagation();
+    dragCounter = 0;
+    document.body.classList.remove('dragging-files');
     const file = getValidDroppedImage(event);
     if (file) await uploadReferenceImage(file, targetFilename);
 }
