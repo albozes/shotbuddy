@@ -420,29 +420,84 @@
 
             // Global drag detection for showing drop zones between shots
             let dragCounter = 0;
+            let currentNearestZone = null;
+            let dragRafId = null;
+            let cachedDropZones = null;
+            const DROP_ZONE_THRESHOLD = 45;
+            const DROP_ZONE_HYSTERESIS = 20;
+
+            function updateNearestDropZone(clientY) {
+                if (!cachedDropZones) return;
+                let nearest = null;
+                let minDist = Infinity;
+
+                cachedDropZones.forEach(zone => {
+                    const rect = zone.getBoundingClientRect();
+                    const center = rect.top + rect.height / 2;
+                    const dist = Math.abs(clientY - center);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = zone;
+                    }
+                });
+
+                const target = (nearest && minDist <= DROP_ZONE_THRESHOLD) ? nearest : null;
+
+                if (target !== currentNearestZone) {
+                    // Keep the current zone active until the cursor moves well past the threshold
+                    if (currentNearestZone) {
+                        const currentRect = currentNearestZone.getBoundingClientRect();
+                        const currentDist = Math.abs(clientY - (currentRect.top + currentRect.height / 2));
+                        if (currentDist <= DROP_ZONE_THRESHOLD + DROP_ZONE_HYSTERESIS) return;
+                    }
+                    if (currentNearestZone) currentNearestZone.classList.remove('drag-nearest');
+                    if (target) target.classList.add('drag-nearest');
+                    currentNearestZone = target;
+                }
+            }
+
+            function resetDragState() {
+                dragCounter = 0;
+                document.body.classList.remove('dragging-files');
+                if (currentNearestZone) {
+                    currentNearestZone.classList.remove('drag-nearest');
+                    currentNearestZone = null;
+                }
+                if (dragRafId) {
+                    cancelAnimationFrame(dragRafId);
+                    dragRafId = null;
+                }
+                cachedDropZones = null;
+            }
+
             document.addEventListener('dragenter', (e) => {
                 dragCounter++;
                 if (e.dataTransfer.types.includes('Files')) {
                     document.body.classList.add('dragging-files');
+                    if (!cachedDropZones) {
+                        cachedDropZones = document.querySelectorAll('.drop-between-zone');
+                    }
                 }
+            });
+            document.addEventListener('dragover', (e) => {
+                if (!cachedDropZones) return;
+                if (dragRafId) return;
+                const y = e.clientY;
+                dragRafId = requestAnimationFrame(() => {
+                    updateNearestDropZone(y);
+                    dragRafId = null;
+                });
             });
             document.addEventListener('dragleave', (e) => {
                 dragCounter--;
                 if (dragCounter <= 0 ||
                     e.clientX <= 0 || e.clientY <= 0 ||
                     e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-                    dragCounter = 0;
-                    document.body.classList.remove('dragging-files');
+                    resetDragState();
                 }
             });
-            document.addEventListener('drop', (e) => {
-                dragCounter = 0;
-                document.body.classList.remove('dragging-files');
-            });
-            document.addEventListener('dragend', (e) => {
-                dragCounter = 0;
-                document.body.classList.remove('dragging-files');
-            });
+            document.addEventListener('drop', () => resetDragState());
+            document.addEventListener('dragend', () => resetDragState());
 
             // Sticky header detection — add 'stuck' class when header is pinned
             const gridHeader = document.getElementById('main-grid-header');
@@ -2680,8 +2735,7 @@ async function handleRefDrop(event) {
 
 async function handleRefVersionDrop(event, targetFilename) {
     event.stopPropagation();
-    dragCounter = 0;
-    document.body.classList.remove('dragging-files');
+    resetDragState();
     const file = getValidDroppedImage(event);
     if (file) await uploadReferenceImage(file, targetFilename);
 }

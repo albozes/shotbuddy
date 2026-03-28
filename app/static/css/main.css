@@ -1124,23 +1124,27 @@
             transform: scale(0.95);
         }
 
-        /* When dragging files on page, show expanded hit areas */
-        body.dragging-files .drop-between-zone {
-            height: 48px;
-            margin: 2px 0;
+        /* When dragging files, expand only the nearest drop zone.
+           Use padding + negative margins so layout doesn't shift. */
+        .drop-between-zone.drag-nearest {
+            z-index: 10;
+            padding: 18px 0;
+            margin: -18px 0;
             background: rgba(var(--color-accent-rgb), 0.1);
             border: 1px dashed rgba(var(--color-accent-rgb), 0.3);
         }
 
         /* Hide insert button when dragging files or hovering over drop zone */
         body.dragging-files .between-insert-btn,
-        .drop-between-zone.drag-over .between-insert-btn {
+        .drop-between-zone.drag-over .between-insert-btn,
+        .drop-between-zone.drag-nearest .between-insert-btn {
             display: none;
         }
 
         .drop-between-zone.drag-over {
-            height: 64px;
-            margin: 4px 0;
+            z-index: 10;
+            padding: 26px 0;
+            margin: -26px 0;
             background: var(--color-accent-muted);
             border: 2px dashed var(--color-accent);
         }
