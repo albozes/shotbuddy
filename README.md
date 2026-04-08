@@ -73,6 +73,18 @@ Follow these steps to get the application running on any operating system. The o
 
    By default, Shotbuddy will be available at http://127.0.0.1:5001/
 
+## Quick Start
+
+After the initial installation, you can launch Shotbuddy by double-clicking the
+included launcher script — no need to open a terminal:
+
+- **macOS** – Double-click `start.command`. On the very first launch, macOS may
+  block it. Right-click the file and choose **Open** to allow it once.
+- **Windows** – Double-click `start.bat`.
+
+The launcher activates the virtual environment and starts the server
+automatically.
+
 ## Configuration
 
 Server settings can be defined in the `shotbuddy.cfg` file located in the
